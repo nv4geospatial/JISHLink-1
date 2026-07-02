@@ -1,0 +1,104 @@
+Build a full-stack workforce staffing & manpower management system called "JISHLink" for JISHLink Consulting India Private Limited, using Supabase as the backend platform.
+
+BRAND & DESIGN
+Use the two attached logo files exactly as provided — do not generate a new logo or icon. Use logo.jpeg as the header wordmark on the web dashboard's login and sidebar, and logo-icon.jpeg as the favicon and mobile PWA app icon.
+Colour palette (CSS variables, used consistently across dashboard and PWA):
+- Primary navy: #0B3B63
+- Secondary teal blue: #1782A8
+- Accent gold: #E7A94C
+- Accent bronze (hover/pressed gold): #8A5A1E
+- Background: #F5F5F4
+- Surface/card: #FFFFFF
+- Text primary: #12233A
+- Text muted: #5C6B7A
+- Success: #2E9E6B
+- Warning: #E7A94C
+- Danger: #D14B3D
+Bold geometric sans-serif headings, rounded 8px corners on cards/buttons/chips, sidebar + top bar layout for the dashboard, mobile-first single column for the PWA.
+
+TECH STACK
+- Backend-as-a-service: Supabase (Postgres database, Auth, Storage) — read SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY from environment variables/Replit Secrets, never hardcode them
+- Lightweight API layer: Node.js + Express, used only for logic Supabase can't do directly — QR generation, the attendance-scan verification pipeline (geofence math, shift window checks), and Excel/PDF report generation. Everything else (CRUD on employees/clients/sites, dashboard reads) can call Supabase directly from the frontend using @supabase/supabase-js with Row Level Security policies enforcing role scope.
+- Web dashboard: React (Vite) + React Router + Recharts
+- Mobile app: React PWA (installable, camera access for QR scanning, Geolocation API)
+- Auth:
+  - HR/Admin/Recruiter: Supabase Auth, email + password, with optional TOTP-based two-factor step (Supabase MFA)
+  - Employee: mobile number based. Use Supabase Auth's phone provider for OTP delivery and verification. Employee-facing identity is employee_code (auto-generated), which maps 1:1 to the employee's registered mobile number in the employees table. Also support employee_code + password as an alternative login method (password stored as a bcrypt hash in the employees table, verified via a small Express endpoint since Supabase Auth's primary identity here is the phone number).
+- QR generation: "qrcode" npm package, QR payload is a signed deep link like https://<app-url>/attend/<site_token>
+- Excel export: "exceljs"; PDF export: "pdfkit"
+- File storage: Supabase Storage buckets — "employee-photos" and "site-qr-codes" (not local disk)
+
+PROJECT STRUCTURE (match this exactly)
+backend/     — Express API for QR generation, attendance-scan verification, report generation; Supabase client (service role) for privileged writes
+mobile/      — React PWA for the Employee role
+dashboard/   — React web app for Admin and Recruiter roles
+database/    — Supabase SQL migrations (schema, RLS policies) and a seed script
+api/         — shared API route definitions/types used by both backend and frontends
+uploads/     — local staging folder only, used transiently before files are pushed to Supabase Storage
+reports/     — generated Excel/PDF exports land here temporarily before download
+Run dashboard, mobile, and backend concurrently with a single "npm run dev" at the project root.
+
+DATABASE SCHEMA (Supabase Postgres — create as SQL migrations in database/, plus matching RLS policies)
+- users (id, email, role_id, mfa_enabled, created_at) — mirrors Supabase Auth users for admin/recruiter, linked by auth uid
+- roles (id, name: admin/recruiter/employee, description)
+- permissions (id, role_id, module, can_create, can_read, can_update, can_delete)
+- employees (id, employee_code auto-generated from a configurable prefix + starting sequence set in Settings, name, mobile UNIQUE and required, email optional, address, aadhaar optional, pan optional, date_of_joining, client_id, site_id, shift_id, status: active/inactive, photo_url, password_hash, auth_phone_uid linking to Supabase Auth phone identity)
+- clients (id, name, contact_person, phone, email, address, status)
+- sites (id, name, client_id, address, latitude, longitude, geofence_radius_meters, qr_token UNIQUE, qr_code_image_url, supervisor_name, assigned_recruiter_id)
+- shift_master (id, name, start_time, end_time, grace_minutes)
+- attendance (id, employee_id, site_id, date, check_in_time, check_out_time, check_in_lat, check_in_lng, check_out_lat, check_out_lng, device_id, status: present/absent/late/early_out)
+- otp_logs (id, employee_id, otp_hash, purpose: login/password_reset, expires_at, used_at) — used for the SMS OTP audit trail and for the "forgot password" reset-code flow; OTP itself is delivered via Supabase phone Auth or, for password reset specifically, via a custom SMS send using the same configured SMS provider, and always expires in 10 minutes
+- qr_codes (id, site_id, code_value, generated_at, expires_at, is_active) — supports rotating/expiring site QR codes if the Admin chooses to regenerate one
+Write RLS policies so: admins see everything; recruiters only see rows where site.assigned_recruiter_id or client matches their own row in employees/users; employees only see their own attendance and profile rows.
+Seed the database (database/seed script) with: 1 admin user, 2 recruiter users, 2 clients, 3 sites (realistic lat/long, 100m geofence radius, one qr_token each), 2 shifts (day, night), 10 sample employees with mobile numbers distributed across sites, and ~30 days of realistic attendance history so dashboard graphs and reports have data immediately.
+
+MODULES TO BUILD (implement every field and action listed)
+
+1. Login
+   Employee: Employee ID + Password/OTP toggle, Forgot Password (SMS-based reset code sent to registered mobile — no email involved)
+   HR/Admin: Email + Password, optional two-factor authentication step
+2. Dashboard: Total Employees, Present Today, Absent Today, Late Arrivals, Sites count, Clients count, Attendance Graph (last 14 days, Recharts), Recent Check-ins (live, poll every 15s)
+3. Employee Management
+   Fields: Employee ID (auto-generated), Name, Mobile Number (required), Email (optional), Address, Aadhaar Number (optional), PAN (optional), Date of Joining, Client, Site, Shift, Status (Active/Inactive), Employee Photo
+   Actions: Add, Edit, Delete, Search, Export
+4. Client Management
+   Fields: Client Name, Contact Person, Phone, Email, Address, Status
+5. Site Management
+   Fields per site: Site Name, Client, Address, Latitude, Longitude, Geofence Radius (e.g. 100m), QR Code, Supervisor
+   Admin can generate/regenerate a site's QR code and download/print it. Recruiters can view but not generate or edit a site's QR code (read-only, only if their role permission allows viewing it at all).
+6. QR Code Attendance — implement this exact sequence, in this exact order:
+   a. Employee scans the site QR code (printed at the site) with their phone camera — this opens JISHLink directly at /attend/<site_token> in the mobile browser/PWA, loading that site's attendance screen
+   b. If the employee is not already logged in, they log in right there on the attendance screen (Employee ID + Password, or Employee ID + SMS OTP) — this is a login step embedded in the scan flow, not a separate screen visited beforehand
+   c. Once authenticated, the app requests GPS permission and reads current latitude/longitude
+   d. App sends to the backend: site_token, latitude, longitude, device_id, timestamp
+   e. Backend validates in order: (1) QR/site token is valid and site exists, (2) employee is assigned to this site, (3) employee is within the site's geofence radius (haversine distance), (4) current time is within the shift window (with grace_minutes), (5) whether this is a check-in or check-out
+   f. On any failure, return the specific reason and show it in the UI (e.g. "You are 340m from the site — move closer", "This QR code is not recognized", "Your shift starts at 09:00")
+   g. On success: save the attendance record (Employee ID, Date, Time, GPS coordinates, Device ID, Site ID), mark on-time or late, show a success screen with site name/time/status badge, then update attendance history and refresh dashboard stats
+7. Attendance Reports
+   Daily: Present, Absent, Late, Early Out
+   Monthly: Total Working Days, Overtime, Attendance Percentage
+   Filters: Date, Month, Site, Employee, Recruiter scope
+   Export: Excel and PDF
+8. Employee Mobile App (PWA)
+   Home Screen: Scan QR, Check-In, Check-Out, Attendance History, Profile
+9. HR Dashboard
+   Menu: Dashboard, Employees, Clients, Sites, Attendance, Reports, Settings (Settings is Admin-only: roles/permissions, shift master, employee ID sequence prefix/start number, SMS provider status check)
+
+RECRUITER SCOPE RULES
+Recruiters see only their assigned clients, sites, and employees; can view (not generate/edit) site QR codes if permitted by their role's permission row; can view and export reports only within their scope; cannot manage roles, permissions, or global settings.
+
+OTP / SMS RULES (apply everywhere — no email OTP anywhere in the app)
+- OTP is generated server-side and stored hashed in otp_logs, never stored or logged in plain text
+- OTP is delivered by SMS to the employee's registered mobile number, via Supabase's phone Auth provider (or the same underlying SMS gateway for password-reset codes)
+- OTP expires in 10 minutes
+- Refer to the SMS mechanism generically as "SMS gateway / configured provider" everywhere in code comments, UI text, and the README — do not hardcode a specific provider name
+- Employees never see an email field on login, OTP, or password reset screens; email stays only as an optional field on their profile page
+
+TESTING & VERIFICATION
+- Include a Postman collection (or a .http file) in backend/ covering every Express endpoint (QR generation, attendance scan, report export) with example payloads
+- Add a /api/health endpoint that checks Supabase connectivity
+- Document, in the README, exactly which reads/writes go straight to Supabase from the frontend (via RLS) versus which go through the Express backend, so it's clear how to test each path
+- Make sure the whole app runs with a single click on Replit's Run button, with dashboard and PWA both reachable from the Replit webview
+
+DELIVERABLE
+Generate a thorough README.md at the project root covering: what the app is and its modules, the tech stack including Supabase setup steps, how to add the three Supabase secrets in Replit, how to run it in Replit (web browser), how to install and test the PWA on a real phone (Android Chrome and iOS Safari "Add to Home Screen" steps), the seeded demo login credentials for admin, recruiter, and employee (mobile number + password), how "OTP sent to registered mobile number" and "reset code sent to registered mobile number" work end to end, how to test the Express API using the included Postman/.http collection, exactly how the QR-scan → login → GPS-verify → save → dashboard-update flow works, the full database schema and RLS policy summary, and troubleshooting tips (camera permission denied, geolocation blocked, SMS OTP not arriving, QR not scanning, Supabase secrets missing).
