@@ -848,7 +848,23 @@ function QrDialog({ open, onOpenChange, site, onSuccess }: any) {
               <Button 
                 className="flex-1"
                 onClick={() => {
-                  window.open(site.qr_code_image_url, '_blank');
+                  // Fetch the image and trigger download
+                  fetch(site.qr_code_image_url)
+                    .then(response => response.blob())
+                    .then(blob => {
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `JISHLink-QR-${site.name.replace(/\s+/g, '-')}.png`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      window.URL.revokeObjectURL(url);
+                    })
+                    .catch(() => {
+                      // Fallback: open in new tab if download fails
+                      window.open(site.qr_code_image_url, '_blank');
+                    });
                 }}
               >
                 Print / Download
