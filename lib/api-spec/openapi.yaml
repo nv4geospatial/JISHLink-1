@@ -3,20 +3,31 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: JISHLink Workforce & Manpower Management API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Employee authentication (password verification, OTP)
+  - name: employees
+    description: Employee CRUD, import and export operations
+  - name: attendance
+    description: QR-based attendance scan verification
+  - name: qr
+    description: QR code generation for sites
+  - name: reports
+    description: Excel and PDF report generation
+  - name: dashboard
+    description: Dashboard summary stats
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
-      summary: Health check
-      description: Returns server health status
+      summary: Health check (includes Supabase connectivity)
       responses:
         "200":
           description: Healthy
@@ -24,13 +35,1375 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /employees:
+    get:
+      operationId: getEmployees
+      tags: [employees]
+      summary: List all employees with optional filters
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, active, inactive, on_leave, terminated, absconding]
+        - name: client_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: site_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of employees
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeListResponse"
+    post:
+      operationId: createEmployee
+      tags: [employees]
+      summary: Create a new employee
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmployeeCreateRequest"
+      responses:
+        "201":
+          description: Employee created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /employees/{id}:
+    get:
+      operationId: getEmployeeById
+      tags: [employees]
+      summary: Get a single employee by ID
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Employee details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeResponse"
+        "404":
+          description: Employee not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateEmployee
+      tags: [employees]
+      summary: Update an existing employee
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmployeeUpdateRequest"
+      responses:
+        "200":
+          description: Employee updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeResponse"
+        "404":
+          description: Employee not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteEmployee
+      tags: [employees]
+      summary: Delete an employee
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Employee deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "404":
+          description: Employee not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /employees/export/excel:
+    get:
+      operationId: exportEmployeesExcel
+      tags: [employees]
+      summary: Export all employees to Excel (.xlsx)
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, active, inactive, on_leave, terminated, absconding]
+      responses:
+        "200":
+          description: Excel file download
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+  /employees/import:
+    post:
+      operationId: importEmployees
+      tags: [employees]
+      summary: Import employees from Excel/CSV data
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmployeeImportRequest"
+      responses:
+        "200":
+          description: Import results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeImportResponse"
+
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check (includes Supabase connectivity)
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /auth/employee/login:
+    post:
+      operationId: employeeLogin
+      tags: [auth]
+      summary: Employee login with employee_code + password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmployeeLoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeLoginResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/employee/send-otp:
+    post:
+      operationId: sendEmployeeOtp
+      tags: [auth]
+      summary: Send SMS OTP to employee's registered mobile number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendOtpRequest"
+      responses:
+        "200":
+          description: OTP sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OtpSentResponse"
+        "404":
+          description: Employee not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/employee/verify-otp:
+    post:
+      operationId: verifyEmployeeOtp
+      tags: [auth]
+      summary: Verify OTP and return employee session token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyOtpRequest"
+      responses:
+        "200":
+          description: OTP verified, session issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeLoginResponse"
+        "400":
+          description: Invalid or expired OTP
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/employee/forgot-password:
+    post:
+      operationId: employeeForgotPassword
+      tags: [auth]
+      summary: Send SMS reset code to employee's registered mobile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordRequest"
+      responses:
+        "200":
+          description: Reset code sent via SMS
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OtpSentResponse"
+        "404":
+          description: Employee not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/employee/reset-password:
+    post:
+      operationId: employeeResetPassword
+      tags: [auth]
+      summary: Reset employee password using SMS reset code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordRequest"
+      responses:
+        "200":
+          description: Password reset successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          description: Invalid or expired reset code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /attendance/scan:
+    post:
+      operationId: attendanceScan
+      tags: [attendance]
+      summary: Process QR attendance scan — validates site token, geofence, shift window, and saves record
+      security:
+        - EmployeeBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttendanceScanRequest"
+      responses:
+        "200":
+          description: Attendance recorded successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceScanResponse"
+        "400":
+          description: Validation failed (geofence, shift window, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceScanError"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /qr/generate/{siteId}:
+    post:
+      operationId: generateQrCode
+      tags: [qr]
+      summary: Generate or regenerate QR code for a site (Admin only)
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: siteId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: QR code generated and stored in Supabase Storage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QrGenerateResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Site not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /reports/daily:
+    get:
+      operationId: getDailyReport
+      tags: [reports]
+      summary: Get daily attendance report data
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: siteId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: employeeId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: recruiterId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Daily report data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyReportResponse"
+
+  /reports/monthly:
+    get:
+      operationId: getMonthlyReport
+      tags: [reports]
+      summary: Get monthly attendance report data
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: siteId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: employeeId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: recruiterId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Monthly report data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonthlyReportResponse"
+
+  /reports/export/excel:
+    get:
+      operationId: exportExcelReport
+      tags: [reports]
+      summary: Export attendance report as Excel file
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [daily, monthly]
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: year
+          in: query
+          schema:
+            type: integer
+        - name: month
+          in: query
+          schema:
+            type: integer
+        - name: siteId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: employeeId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: recruiterId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Excel file download
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+  /reports/export/pdf:
+    get:
+      operationId: exportPdfReport
+      tags: [reports]
+      summary: Export attendance report as PDF file
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [daily, monthly]
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: year
+          in: query
+          schema:
+            type: integer
+        - name: month
+          in: query
+          schema:
+            type: integer
+        - name: siteId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: employeeId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: recruiterId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: PDF file download
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard summary statistics
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/attendance-trend:
+    get:
+      operationId: getAttendanceTrend
+      tags: [dashboard]
+      summary: Get last 14 days attendance trend for chart
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: siteId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Attendance trend data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceTrendResponse"
+
+  /dashboard/recent-checkins:
+    get:
+      operationId: getRecentCheckins
+      tags: [dashboard]
+      summary: Get recent check-in events (polled every 15s for live feed)
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Recent check-in records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecentCheckinsResponse"
+
 components:
+  securitySchemes:
+    AdminBearerAuth:
+      type: http
+      scheme: bearer
+    EmployeeBearerAuth:
+      type: http
+      scheme: bearer
+
   schemas:
     HealthStatus:
       type: object
       properties:
         status:
           type: string
+        supabase:
+          type: string
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+      required:
+        - error
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+
+    EmployeeListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmployeeProfile"
+      required:
+        - success
+        - data
+
+    EmployeeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/EmployeeProfile"
+      required:
+        - success
+        - data
+
+    EmployeeCreateRequest:
+      type: object
+      properties:
+        employee_code:
+          type: string
+        name:
+          type: string
+        mobile:
+          type: string
+        email:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        educational_qualification:
+          type: string
+          nullable: true
+        blood_group:
+          type: string
+          nullable: true
+        nominee_name:
+          type: string
+          nullable: true
+        nominee_relationship:
+          type: string
+          nullable: true
+        nominee_contact_number:
+          type: string
+          nullable: true
+        aadhaar:
+          type: string
+          nullable: true
+        pan:
+          type: string
+          nullable: true
+        voter_id:
+          type: string
+          nullable: true
+        driving_license:
+          type: string
+          nullable: true
+        passport_number:
+          type: string
+          nullable: true
+        date_of_joining:
+          type: string
+          format: date
+          nullable: true
+        date_of_leaving:
+          type: string
+          format: date
+          nullable: true
+        client_id:
+          type: string
+          format: uuid
+          nullable: true
+        site_id:
+          type: string
+          format: uuid
+          nullable: true
+        shift_id:
+          type: string
+          format: uuid
+          nullable: true
+        recruiter_id:
+          type: string
+          format: uuid
+          nullable: true
+        designation:
+          type: string
+          nullable: true
+        department:
+          type: string
+          nullable: true
+        employment_type:
+          type: string
+          enum: [permanent, temporary, contract, daily_wage]
+          nullable: true
+        supervisor_name:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, inactive, on_leave, terminated, absconding]
+        uan_number:
+          type: string
+          nullable: true
+        pf_number:
+          type: string
+          nullable: true
+        esi_number:
+          type: string
+          nullable: true
+        basic_salary:
+          type: number
+          nullable: true
+        salary_type:
+          type: string
+          enum: [fixed, per_day, per_hour]
+          nullable: true
+        bank_name:
+          type: string
+          nullable: true
+        bank_account_number:
+          type: string
+          nullable: true
+        ifsc_code:
+          type: string
+          nullable: true
+        bank_branch:
+          type: string
+          nullable: true
+      required:
+        - employee_code
+        - name
+        - mobile
+
+    EmployeeUpdateRequest:
+      allOf:
+        - $ref: "#/components/schemas/EmployeeCreateRequest"
+
+    EmployeeImportRequest:
+      type: object
+      properties:
+        employees:
+          type: array
+          items:
+            type: object
+      required:
+        - employees
+
+    EmployeeImportResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        results:
+          type: object
+          properties:
+            success:
+              type: integer
+            failed:
+              type: integer
+            errors:
+              type: array
+              items:
+                type: string
+      required:
+        - success
+        - results
+
+    EmployeeLoginRequest:
+      type: object
+      properties:
+        employee_code:
+          type: string
+        password:
+          type: string
+      required:
+        - employee_code
+        - password
+
+    SendOtpRequest:
+      type: object
+      properties:
+        employee_code:
+          type: string
+        purpose:
+          type: string
+          enum: [login, password_reset]
+      required:
+        - employee_code
+        - purpose
+
+    ForgotPasswordRequest:
+      type: object
+      properties:
+        employee_code:
+          type: string
+      required:
+        - employee_code
+
+    ResetPasswordRequest:
+      type: object
+      properties:
+        employee_code:
+          type: string
+        reset_code:
+          type: string
+        new_password:
+          type: string
+      required:
+        - employee_code
+        - reset_code
+        - new_password
+
+    VerifyOtpRequest:
+      type: object
+      properties:
+        employee_code:
+          type: string
+        otp:
+          type: string
+        purpose:
+          type: string
+          enum: [login, password_reset]
+      required:
+        - employee_code
+        - otp
+        - purpose
+
+    OtpSentResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        expires_in_minutes:
+          type: integer
+      required:
+        - success
+
+    EmployeeLoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        employee:
+          $ref: "#/components/schemas/EmployeeProfile"
+      required:
+        - token
+        - employee
+
+    EmployeeProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        employee_code:
+          type: string
+        name:
+          type: string
+        mobile:
+          type: string
+        email:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        educational_qualification:
+          type: string
+          nullable: true
+        blood_group:
+          type: string
+          nullable: true
+        nominee_name:
+          type: string
+          nullable: true
+        nominee_relationship:
+          type: string
+          nullable: true
+        nominee_contact_number:
+          type: string
+          nullable: true
+        aadhaar:
+          type: string
+          nullable: true
+        pan:
+          type: string
+          nullable: true
+        voter_id:
+          type: string
+          nullable: true
+        driving_license:
+          type: string
+          nullable: true
+        passport_number:
+          type: string
+          nullable: true
+        date_of_joining:
+          type: string
+          format: date
+          nullable: true
+        date_of_leaving:
+          type: string
+          format: date
+          nullable: true
+        client_id:
+          type: string
+          format: uuid
+          nullable: true
+        site_id:
+          type: string
+          format: uuid
+          nullable: true
+        shift_id:
+          type: string
+          format: uuid
+          nullable: true
+        recruiter_id:
+          type: string
+          format: uuid
+          nullable: true
+        designation:
+          type: string
+          nullable: true
+        department:
+          type: string
+          nullable: true
+        employment_type:
+          type: string
+          enum: [permanent, temporary, contract, daily_wage]
+          nullable: true
+        supervisor_name:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, inactive, on_leave, terminated, absconding]
+        uan_number:
+          type: string
+          nullable: true
+        pf_number:
+          type: string
+          nullable: true
+        esi_number:
+          type: string
+          nullable: true
+        basic_salary:
+          type: number
+          nullable: true
+        salary_type:
+          type: string
+          enum: [fixed, per_day, per_hour]
+          nullable: true
+        bank_name:
+          type: string
+          nullable: true
+        bank_account_number:
+          type: string
+          nullable: true
+        ifsc_code:
+          type: string
+          nullable: true
+        bank_branch:
+          type: string
+          nullable: true
+        photo_url:
+          type: string
+          nullable: true
+        aadhaar_copy_url:
+          type: string
+          nullable: true
+        pan_copy_url:
+          type: string
+          nullable: true
+        bank_passbook_url:
+          type: string
+          nullable: true
+      required:
+        - id
+        - employee_code
+        - name
+        - mobile
+        - status
+
+    AttendanceScanRequest:
+      type: object
+      properties:
+        site_token:
+          type: string
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        device_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - site_token
+        - latitude
+        - longitude
+        - device_id
+        - timestamp
+
+    AttendanceScanResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        action:
+          type: string
+          enum: [check_in, check_out]
+        status:
+          type: string
+          enum: [present, late, early_out]
+        site_name:
+          type: string
+        time:
+          type: string
+          format: date-time
+        attendance_id:
+          type: string
+          format: uuid
+        distance_meters:
+          type: number
+      required:
+        - success
+        - action
+        - status
+        - site_name
+        - time
+
+    AttendanceScanError:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+          enum:
+            - INVALID_QR
+            - NOT_ASSIGNED
+            - OUTSIDE_GEOFENCE
+            - OUTSIDE_SHIFT_WINDOW
+            - ALREADY_CHECKED_OUT
+        distance_meters:
+          type: number
+        shift_start:
+          type: string
+        shift_end:
+          type: string
+      required:
+        - error
+        - code
+
+    QrGenerateResponse:
+      type: object
+      properties:
+        qr_code_url:
+          type: string
+        qr_token:
+          type: string
+        site_id:
+          type: string
+          format: uuid
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - qr_code_url
+        - qr_token
+        - site_id
+
+    DailyReportResponse:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        total:
+          type: integer
+        present:
+          type: integer
+        absent:
+          type: integer
+        late:
+          type: integer
+        early_out:
+          type: integer
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/AttendanceRecord"
+      required:
+        - date
+        - total
+        - present
+        - absent
+        - late
+        - early_out
+        - records
+
+    MonthlyReportResponse:
+      type: object
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        working_days:
+          type: integer
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/MonthlyEmployeeRecord"
+      required:
+        - year
+        - month
+        - working_days
+        - records
+
+    AttendanceRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        employee_id:
+          type: string
+          format: uuid
+        employee_code:
+          type: string
+        employee_name:
+          type: string
+        site_id:
+          type: string
+          format: uuid
+        site_name:
+          type: string
+        date:
+          type: string
+          format: date
+        check_in_time:
+          type: string
+          format: date-time
+          nullable: true
+        check_out_time:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [present, absent, late, early_out]
+        check_in_lat:
+          type: number
+          nullable: true
+        check_in_lng:
+          type: number
+          nullable: true
+      required:
+        - id
+        - employee_id
+        - employee_code
+        - employee_name
+        - site_id
+        - site_name
+        - date
+        - status
+
+    MonthlyEmployeeRecord:
+      type: object
+      properties:
+        employee_id:
+          type: string
+          format: uuid
+        employee_code:
+          type: string
+        employee_name:
+          type: string
+        present_days:
+          type: integer
+        absent_days:
+          type: integer
+        late_days:
+          type: integer
+        attendance_percentage:
+          type: number
+          format: double
+      required:
+        - employee_id
+        - employee_code
+        - employee_name
+        - present_days
+        - absent_days
+        - late_days
+        - attendance_percentage
+
+    DashboardStats:
+      type: object
+      properties:
+        total_employees:
+          type: integer
+        present_today:
+          type: integer
+        absent_today:
+          type: integer
+        late_today:
+          type: integer
+        total_sites:
+          type: integer
+        total_clients:
+          type: integer
+      required:
+        - total_employees
+        - present_today
+        - absent_today
+        - late_today
+        - total_sites
+        - total_clients
+
+    AttendanceTrendResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AttendanceDayStats"
+      required:
+        - data
+
+    AttendanceDayStats:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        present:
+          type: integer
+        absent:
+          type: integer
+        late:
+          type: integer
+      required:
+        - date
+        - present
+        - absent
+        - late
+
+    RecentCheckinsResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecentCheckin"
+      required:
+        - data
+
+    RecentCheckin:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        employee_name:
+          type: string
+        employee_code:
+          type: string
+        site_name:
+          type: string
+        check_in_time:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [present, late]
+        photo_url:
+          type: string
+          nullable: true
+      required:
+        - id
+        - employee_name
+        - employee_code
+        - site_name
+        - check_in_time
+        - status

@@ -1,0 +1,309 @@
+### JISHLink API Endpoints
+### REST Client / VS Code REST Client compatible
+### Usage: Install "REST Client" extension (humao.rest-client)
+###
+### Variables — set these before testing:
+
+@baseUrl = http://localhost:8080
+@adminToken = <paste-supabase-admin-jwt-here>
+@recruiterToken = <paste-supabase-recruiter-jwt-here>
+@employeeToken = <paste-employee-jwt-from-login-response>
+@siteId = 30000000-0000-0000-0000-000000000001
+@employeeId = 40000000-0000-0000-0000-000000000001
+
+###
+### ─── HEALTH ──────────────────────────────────────────────────────────────────
+###
+
+### GET /healthz — server + Supabase connectivity check
+GET {{baseUrl}}/healthz
+
+###
+### ─── EMPLOYEE AUTH ───────────────────────────────────────────────────────────
+###
+
+### POST /auth/employee/login — authenticate with employee code + password
+POST {{baseUrl}}/auth/employee/login
+Content-Type: application/json
+
+{
+  "employee_code": "JL1001",
+  "password": "MyPassword123"
+}
+
+###
+
+### POST /auth/employee/send-otp — request SMS OTP for login
+POST {{baseUrl}}/auth/employee/send-otp
+Content-Type: application/json
+
+{
+  "employee_code": "JL1001",
+  "purpose": "login"
+}
+
+###
+
+### POST /auth/employee/verify-otp — verify SMS OTP and get JWT
+POST {{baseUrl}}/auth/employee/verify-otp
+Content-Type: application/json
+
+{
+  "employee_code": "JL1001",
+  "otp": "123456",
+  "purpose": "login"
+}
+
+###
+
+### POST /auth/employee/forgot-password — send password reset SMS OTP
+POST {{baseUrl}}/auth/employee/forgot-password
+Content-Type: application/json
+
+{
+  "employee_code": "JL1001"
+}
+
+###
+
+### POST /auth/employee/reset-password — reset password with SMS code
+POST {{baseUrl}}/auth/employee/reset-password
+Content-Type: application/json
+
+{
+  "employee_code": "JL1001",
+  "reset_code": "123456",
+  "new_password": "NewPassword456"
+}
+
+###
+### ─── ATTENDANCE SCAN (Employee Bearer token) ─────────────────────────────────
+###
+
+### POST /attendance/scan — full QR scan pipeline (check-in)
+POST {{baseUrl}}/attendance/scan
+Content-Type: application/json
+Authorization: Bearer {{employeeToken}}
+
+{
+  "site_token": "qr_mum_central_001",
+  "latitude": 18.9748,
+  "longitude": 72.8241,
+  "device_id": "device_abc_123",
+  "timestamp": "2026-07-02T08:05:00.000Z"
+}
+
+###
+
+### POST /attendance/scan — check-out (same endpoint, server detects state)
+POST {{baseUrl}}/attendance/scan
+Content-Type: application/json
+Authorization: Bearer {{employeeToken}}
+
+{
+  "site_token": "qr_mum_central_001",
+  "latitude": 18.9748,
+  "longitude": 72.8241,
+  "device_id": "device_abc_123",
+  "timestamp": "2026-07-02T17:10:00.000Z"
+}
+
+###
+
+### POST /attendance/scan — geofence fail test (far away)
+POST {{baseUrl}}/attendance/scan
+Content-Type: application/json
+Authorization: Bearer {{employeeToken}}
+
+{
+  "site_token": "qr_mum_central_001",
+  "latitude": 19.1000,
+  "longitude": 72.9000,
+  "device_id": "device_abc_123"
+}
+
+###
+### ─── QR CODE GENERATION (Admin Supabase token) ───────────────────────────────
+###
+
+### POST /qr/generate/:siteId — generate/rotate QR code for a site
+POST {{baseUrl}}/qr/generate/{{siteId}}
+Authorization: Bearer {{adminToken}}
+
+###
+### ─── DASHBOARD (Admin/Recruiter Supabase token) ──────────────────────────────
+###
+
+### GET /dashboard/stats — KPI summary for today
+GET {{baseUrl}}/dashboard/stats
+Authorization: Bearer {{adminToken}}
+
+###
+
+### GET /dashboard/attendance-trend — 14-day daily attendance trend
+GET {{baseUrl}}/dashboard/attendance-trend
+Authorization: Bearer {{adminToken}}
+
+###
+
+### GET /dashboard/attendance-trend — filtered by site
+GET {{baseUrl}}/dashboard/attendance-trend?siteId={{siteId}}
+Authorization: Bearer {{adminToken}}
+
+###
+
+### GET /dashboard/recent-checkins — latest 20 check-ins
+GET {{baseUrl}}/dashboard/recent-checkins
+Authorization: Bearer {{adminToken}}
+
+###
+
+### GET /dashboard/recent-checkins — limit to 5
+GET {{baseUrl}}/dashboard/recent-checkins?limit=5
+Authorization: Bearer {{adminToken}}
+
+###
+### ─── REPORTS (Admin/Recruiter Supabase token) ────────────────────────────────
+###
+
+### GET /reports/daily — attendance for a specific date
+GET {{baseUrl}}/reports/daily?date=2026-07-02
+Authorization: Bearer {{adminToken}}
+
+###
+
+### GET /reports/daily — filtered by site
+GET {{baseUrl}}/reports/daily?date=2026-07-02&siteId={{siteId}}
+Authorization: Bearer {{adminToken}}
+
+###
+
+### GET /reports/daily — filtered by employee
+GET {{baseUrl}}/reports/daily?date=2026-07-02&employeeId={{employeeId}}
+Authorization: Bearer {{adminToken}}
+
+###
+
+### GET /reports/monthly — monthly summary
+GET {{baseUrl}}/reports/monthly?year=2026&month=6
+Authorization: Bearer {{adminToken}}
+
+###
+
+### GET /reports/monthly — filtered by site
+GET {{baseUrl}}/reports/monthly?year=2026&month=6&siteId={{siteId}}
+Authorization: Bearer {{adminToken}}
+
+###
+### ─── EXPORT ──────────────────────────────────────────────────────────────────
+###
+
+### GET /reports/export/excel — download daily Excel report
+GET {{baseUrl}}/reports/export/excel?type=daily&date=2026-07-02
+Authorization: Bearer {{adminToken}}
+
+###
+
+### GET /reports/export/excel — download monthly Excel report
+GET {{baseUrl}}/reports/export/excel?type=monthly&year=2026&month=6
+Authorization: Bearer {{adminToken}}
+
+###
+
+### GET /reports/export/pdf — download daily PDF report
+GET {{baseUrl}}/reports/export/pdf?type=daily&date=2026-07-02
+Authorization: Bearer {{adminToken}}
+
+###
+
+### GET /reports/export/pdf — download monthly PDF report
+GET {{baseUrl}}/reports/export/pdf?type=monthly&year=2026&month=6
+Authorization: Bearer {{adminToken}}
+
+###
+### ─── EMPLOYEE ATTENDANCE HISTORY (Employee Bearer token) ───────────────────
+
+### GET /attendance/employee/:id — recent 7 records
+GET {{baseUrl}}/attendance/employee/{{employeeId}}?limit=7
+Authorization: Bearer {{employeeToken}}
+
+###
+
+### GET /attendance/employee/:id — monthly records
+GET {{baseUrl}}/attendance/employee/{{employeeId}}?year=2026&month=7
+Authorization: Bearer {{employeeToken}}
+
+###
+### ─── REPORTS (Admin/Recruiter Supabase token) ────────────────────────────────
+
+### GET /reports/daily — daily attendance report
+GET {{baseUrl}}/reports/daily?date=2026-07-02
+Authorization: Bearer {{adminToken}}
+
+###
+
+### GET /reports/monthly — monthly summary
+GET {{baseUrl}}/reports/monthly?year=2026&month=6
+Authorization: Bearer {{adminToken}}
+
+###
+
+### GET /reports/export/excel — download daily Excel
+GET {{baseUrl}}/reports/export/excel?type=daily&date=2026-07-02
+Authorization: Bearer {{adminToken}}
+
+###
+
+### GET /dashboard/recent-checkins — recent check-ins list
+GET {{baseUrl}}/dashboard/recent-checkins?limit=10
+Authorization: Bearer {{adminToken}}
+
+###
+### ─── RECRUITER SCOPED EXAMPLES ───────────────────────────────────────────────
+
+### GET /dashboard/stats — recruiter sees only their sites' data
+GET {{baseUrl}}/dashboard/stats
+Authorization: Bearer {{recruiterToken}}
+
+###
+
+### GET /reports/daily — recruiter sees only their site records
+GET {{baseUrl}}/reports/daily?date=2026-07-02
+Authorization: Bearer {{recruiterToken}}
+
+###
+### ─── ERROR CASES ─────────────────────────────────────────────────────────────
+###
+
+### 401 — no token
+GET {{baseUrl}}/dashboard/stats
+
+###
+
+### 401 — invalid employee token
+POST {{baseUrl}}/attendance/scan
+Content-Type: application/json
+Authorization: Bearer invalid_token_here
+
+{
+  "site_token": "qr_mum_central_001",
+  "latitude": 18.9748,
+  "longitude": 72.8241,
+  "device_id": "test"
+}
+
+###
+
+### 400 — invalid QR token
+POST {{baseUrl}}/attendance/scan
+Content-Type: application/json
+Authorization: Bearer {{employeeToken}}
+
+{
+  "site_token": "invalid_qr_token_xyz",
+  "latitude": 18.9748,
+  "longitude": 72.8241,
+  "device_id": "test"
+}
+
+###

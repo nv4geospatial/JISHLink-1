@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/mobile/"
+title = "JISHLink Mobile"
+version = "1.0.0"
+id = "artifacts/mobile"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/mobile/" ]
+localPort = 22463
+
+[services.development]
+run = "pnpm --filter @workspace/mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/mobile", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/mobile/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22463"
+BASE_PATH = "/mobile/"

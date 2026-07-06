@@ -1,0 +1,4 @@
+- [OTP & Auth decisions](otp-auth-decisions.md) — OTP via otp_logs only; employee JWT via SESSION_SECRET; no supabase.auth OTP
+- [RBAC & recruiter scoping](rbac-scoping.md) — requireRole() + getRecruiterSiteIds() for explicit role + site-scope enforcement
+- [API server build quirks](api-server-build.md) — pdfkit/exceljs externalized in build.mjs; supabase is NOT Drizzle
+- [Mobile PWA auth](mobile-auth.md) — employee token in localStorage; apiFetch hits /api-server/ proxy path

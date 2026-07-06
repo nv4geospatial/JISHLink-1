@@ -1,0 +1,25 @@
+Continue building JISHLink from the existing code in this Repl. Do not restart, regenerate, or re-scaffold anything that already works — the backend, dashboard, and Supabase schema are already built and typechecking clean. Pick up exactly where you left off.
+
+STEP 1 — Finish the code review fixes (do these first, in this order, before touching the mobile PWA):
+1. Reports and dashboard endpoints: replace the current "just check the user is authenticated" logic with explicit role-based access control — verify the caller's role and, for recruiters, their assigned client/site scope, on every reports and dashboard route.
+2. QR generation endpoint: require the caller's role to be explicitly "admin" — do not allow it just because the caller is "not a recruiter" (that would wrongly allow employees through too).
+3. OTP login: remove the leftover call to supabase.auth.signInWithOtp. Our own otp_logs table is the single source of truth for OTP generation, hashing, and verification — the login route should only use that, not Supabase's built-in OTP call.
+4. Attendance check-out: add "status" to the check-out query's select clause so the response includes it, and make sure shift-window (on-time/late) decisions are computed using server time, not any client-supplied timestamp.
+5. JWT/session setup: make the server fail fast and refuse to start if the SESSION_SECRET environment variable is missing, instead of silently falling back to a default.
+
+After these five fixes, run a typecheck on the backend and confirm it's still clean before moving on.
+
+STEP 2 — Finish the mobile PWA
+Continue building mobile/ to match this exact flow: employee scans the site QR (opens directly to that site's attendance screen) → if not logged in, logs in right there (Employee ID + Password, or Employee ID + SMS OTP) → app requests GPS permission and reads location → sends site_token + lat/long + device_id to the backend's attendance-scan endpoint → shows the specific success or failure message returned by the backend → on success, updates attendance history.
+Screens needed: Login (Employee ID + password/OTP toggle, Forgot Password via mobile SMS reset code), Home (Scan QR, Check-In, Check-Out, Attendance History, Profile), Scan QR (camera + geolocation), Attendance History (list with status badges), Profile (view details, change password).
+Use the same colour palette and logo as the dashboard (logo-icon.jpeg as the PWA icon). Make it installable (manifest.json + service worker) so it can be added to a phone's home screen from Chrome or Safari.
+
+STEP 3 — Wire up remaining pieces
+- Confirm the Postman/.http collection in backend/ covers every endpoint including the ones touched in Step 1.
+- Confirm /api/health checks Supabase connectivity.
+- Finish README.md at the project root if it isn't complete: what the app is, tech stack, how to add the three Supabase secrets in Replit, how to run it (web), how to install and test the PWA on a real phone (Android Chrome + iOS Safari "Add to Home Screen"), seeded demo login credentials for admin/recruiter/employee, how the SMS OTP and password-reset-via-SMS flows work, how to test the API with the Postman/.http collection, the full QR-scan → login → GPS-verify → save → dashboard-update flow, database schema + RLS policy summary, and troubleshooting tips (camera/geolocation permission denied, SMS OTP not arriving, QR not scanning, missing Supabase secrets).
+
+STEP 4 — Verify end to end
+Run the dashboard, backend, and mobile PWA together with the project's single run command. Confirm: admin can log in and generate a site QR code; the PWA can be opened from a phone browser, scanned QR routes to the right site, employee can log in with OTP, GPS check-in succeeds and appears on the dashboard within 15 seconds, and the recruiter account only sees its own scoped clients/sites/employees.
+
+Work through these steps sequentially rather than launching many parallel subagents — finish and verify each step before starting the next, to keep this run efficient.
