@@ -90,7 +90,7 @@ export default function EmployeesPage() {
       supabase.from("clients").select("id, name"),
       supabase.from("sites").select("id, name"),
       supabase.from("shift_master").select("id, name, start_time, end_time"),
-      supabase.from("users").select("id, email"),
+      supabase.from("users").select("id, name, email"),
     ]);
     
     setClients(clientsRes.data || []);
@@ -584,6 +584,9 @@ function EmployeeDialog({ open, onOpenChange, employee, clients, sites, shifts, 
       shift_id: formData.shift_id === 'none' ? null : formData.shift_id,
       recruiter_id: formData.recruiter_id === 'none' ? null : formData.recruiter_id,
       basic_salary: formData.basic_salary ? parseFloat(formData.basic_salary) : null,
+      // Fix date fields: empty string → null, otherwise keep as-is (HTML date input sends YYYY-MM-DD)
+      date_of_joining: formData.date_of_joining || null,
+      date_of_leaving: formData.date_of_leaving || null,
     };
 
     try {
@@ -757,7 +760,7 @@ function EmployeeDialog({ open, onOpenChange, employee, clients, sites, shifts, 
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
-                      {recruiters.map((r: any) => <SelectItem key={r.id} value={r.id}>{r.email}</SelectItem>)}
+                      {recruiters.map((r: any) => <SelectItem key={r.id} value={r.id}>{r.name || r.email}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>

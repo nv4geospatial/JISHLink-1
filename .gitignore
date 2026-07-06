@@ -53,3 +53,6 @@ Thumbs.db
 artifacts/api-server/.env
 artifacts/dashboard/.env
 artifacts/mobile/.env
+.env
+*.env
+twilio_2FA_recovery_code.txt

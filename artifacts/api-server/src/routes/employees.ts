@@ -85,6 +85,8 @@ router.post('/', requireAuth, requireAdmin, async (req: Request, res: Response) 
       site_id: payload.site_id === 'none' || payload.site_id === '' ? null : payload.site_id,
       shift_id: payload.shift_id === 'none' || payload.shift_id === '' ? null : payload.shift_id,
       recruiter_id: payload.recruiter_id === 'none' || payload.recruiter_id === '' ? null : payload.recruiter_id,
+      date_of_joining: payload.date_of_joining === '' ? null : payload.date_of_joining,
+      date_of_leaving: payload.date_of_leaving === '' ? null : payload.date_of_leaving,
     };
 
     const { data, error } = await supabase
@@ -113,6 +115,8 @@ router.put('/:id', requireAuth, requireAdmin, async (req: Request, res: Response
       site_id: payload.site_id === 'none' || payload.site_id === '' ? null : payload.site_id,
       shift_id: payload.shift_id === 'none' || payload.shift_id === '' ? null : payload.shift_id,
       recruiter_id: payload.recruiter_id === 'none' || payload.recruiter_id === '' ? null : payload.recruiter_id,
+      date_of_joining: payload.date_of_joining === '' ? null : payload.date_of_joining,
+      date_of_leaving: payload.date_of_leaving === '' ? null : payload.date_of_leaving,
     };
 
     const { data, error } = await supabase
