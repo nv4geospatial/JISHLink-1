@@ -24,8 +24,9 @@ self.addEventListener("fetch", (e) => {
     );
     return;
   }
-  // For API requests, always go network
-  if (e.request.url.includes("/api-server/")) {
+  // For API requests (any request going to a different domain than this app itself), always go network
+  const requestUrl = new URL(e.request.url);
+  if (requestUrl.origin !== self.location.origin) {
     e.respondWith(fetch(e.request));
     return;
   }

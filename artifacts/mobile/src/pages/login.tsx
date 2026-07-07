@@ -144,7 +144,7 @@ export default function LoginPage() {
       {/* Header branding */}
       <div className="flex flex-col items-center pt-16 pb-8 px-6">
         <img
-          src="/mobile/logo-icon.jpeg"
+          src="/logo-icon.jpeg"
           alt="JISHLink"
           className="w-20 h-20 rounded-2xl shadow-lg mb-4 object-cover"
           onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
