@@ -521,7 +521,7 @@ router.post(
             type: 'signup',
             email: email.toLowerCase(),
             options: {
-              email_redirect_to: `${req.headers.origin || (process.env.mobile_app_url || 'http://localhost:3000')}/confirm?type=email`,
+              email_redirect_to: `${req.headers.origin || (process.env.MOBILE_APP_URL || 'http://localhost:3000')}/confirm?type=email`,
             },
           }),
         });
@@ -750,7 +750,7 @@ router.post(
           type: 'signup',
           email: email.toLowerCase(),
           options: {
-            email_redirect_to: `${req.headers.origin || (process.env.mobile_app_url || 'http://localhost:3000')}/confirm?type=email`,
+            email_redirect_to: `${req.headers.origin || (process.env.MOBILE_APP_URL || 'http://localhost:3000')}/confirm?type=email`,
           },
         }),
       });

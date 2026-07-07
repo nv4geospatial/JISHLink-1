@@ -100,6 +100,10 @@ export default function LoginPage() {
     return null;
   }
 
+// API server base URL - ensure /api suffix
+const rawApiUrl = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:3001`;
+const API_BASE = rawApiUrl.replace(/\/$/, '') + '/api';
+
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -161,10 +165,6 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
-
-// API server base URL - ensure /api suffix
-const rawApiUrl = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:3001`;
-const API_BASE = rawApiUrl.replace(/\/$/, '') + '/api';
 
   const handleAdminForgot = async (e: React.FormEvent) => {
     e.preventDefault();
