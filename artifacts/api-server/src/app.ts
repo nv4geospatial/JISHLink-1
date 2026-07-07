@@ -49,4 +49,9 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
 
+// Health check / root route
+app.get("/", (req, res) => {
+res.json({ status: "ok", service: "JISHLink API", timestamp: new Date().toISOString() });
+});
+
 export default app;
