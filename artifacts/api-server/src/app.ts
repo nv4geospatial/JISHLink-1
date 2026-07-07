@@ -25,7 +25,25 @@ app.use(
     },
   }),
 );
-app.use(cors());
+const allowedorigins = [
+  "http://localhost:3000",
+  "http://localhost:3002",
+  "https://jishlink.com",
+  "https://www.jishlink.com",
+  "https://jishlink.onrender.com",
+];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // allow requests with no origin (mobile apps, curl, etc.)
+      if (!origin) return callback(null, true);
+      if (allowedorigins.includes(origin)) return callback(null, true);
+      callback(new Error("not allowed by cors"));
+    },
+    credentials: true,
+  }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
