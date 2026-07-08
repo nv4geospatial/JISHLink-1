@@ -462,12 +462,14 @@ router.post(
       }
 
       // Create auth user via Supabase (service_role key = no rate limits)
-      // email_confirm: true = user can login immediately (bypass email issues for now)
+      // email_confirm: false = user must confirm email before login (SMTP now configured)
+      const phoneValue = phone && phone.trim() ? phone.trim() : null;
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: email.toLowerCase(),
         password,
-        email_confirm: true,
-        user_metadata: { full_name: name },
+        email_confirm: false,
+        phone: phoneValue,
+        user_metadata: { full_name: name, phone: phoneValue },
       });
 
       if (authError) {
@@ -487,18 +489,20 @@ router.post(
         return;
       }
 
-      // Insert into users table with active status (auto-confirmed)
-      const phoneValue = phone && phone.trim() ? phone.trim() : null;
+      // Insert into users table with pending status (email NOT verified yet)
       const { error: userError } = await supabase.from('users').insert({
         id: authData.user.id,
         email: email.toLowerCase(),
         name: name || null,
         phone: phoneValue,
         role_id: null,
-        account_status: 'active',
-        email_verified: true,
+        account_status: 'pending',
+        email_verified: false,
       });
 
+      if (userError) {
+        logger.error('Error inserting user record: ' + userError.message);
+      }
       if (userError && !userError.message?.includes('duplicate')) {
         logger.error('Error inserting user record: ' + userError.message);
       }
@@ -842,11 +846,12 @@ router.post(
     }
 
     try {
-      // Find user by phone in users table
+      // Find user by phone in users table (flexible matching)
+      const cleanPhone = phone.replace(/\D/g, '');
       const { data: userRecord, error: userError } = await supabase
         .from('users')
         .select('id, name, email, phone, account_status, role_id')
-        .eq('phone', phone)
+        .or(`phone.eq.${phone},phone.eq.${cleanPhone},phone.eq.+${cleanPhone},phone.ilike.%${cleanPhone}`)
         .single();
 
       if (userError || !userRecord) {
@@ -914,11 +919,12 @@ router.post(
     }
 
     try {
-      // Find user by phone
+      // Find user by phone (flexible matching)
+      const cleanPhone = phone.replace(/\D/g, '');
       const { data: userRecord, error: userError } = await supabase
         .from('users')
         .select('id, name, email, phone, account_status, role_id')
-        .eq('phone', phone)
+        .or(`phone.eq.${phone},phone.eq.${cleanPhone},phone.eq.+${cleanPhone},phone.ilike.%${cleanPhone}`)
         .single();
 
       if (userError || !userRecord) {
@@ -944,6 +950,11 @@ router.post(
         .single();
 
       if (!otpLog) {
+        logger.warn({ 
+          user_id: userRecord.id, 
+          phone: phone,
+          purpose: "admin_login" 
+        }, "OTP not found or expired for admin login");
         res.status(400).json({ error: "OTP not found or has expired" });
         return;
       }
