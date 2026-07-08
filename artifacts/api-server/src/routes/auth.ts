@@ -757,9 +757,21 @@ router.post(
       });
 
       if (!resendResponse.ok) {
-        const resendResult = await resendResponse.json() as { message?: string };
+        const resendResult = await resendResponse.json() as { message?: string; msg?: string };
+        const errorMsg = resendResult.message || resendResult.msg || 'Failed to resend confirmation email';
         logger.error('Resend confirmation error: ' + JSON.stringify(resendResult));
-        res.status(400).json({ error: resendResult.message || 'Failed to resend confirmation email' });
+        
+        // Check for rate limit
+        if (errorMsg.toLowerCase().includes('rate limit') || resendResponse.status === 429) {
+          res.status(429).json({ 
+            error: "Rate limit exceeded", 
+            message: "Too many email requests. Please wait 1 hour before trying again, or check your spam folder.",
+            retry_after: "1 hour"
+          });
+          return;
+        }
+        
+        res.status(400).json({ error: errorMsg });
         return;
       }
 

@@ -103,6 +103,15 @@ export default function ConfirmPage() {
       const result = await response.json();
 
       if (!response.ok) {
+        // Handle rate limit specifically
+        if (response.status === 429 || result.error?.includes('Rate limit')) {
+          toast({ 
+            title: "Rate limit exceeded", 
+            description: result.message || "Too many requests. Please wait 1 hour before trying again, or check your spam folder.", 
+            variant: "destructive" 
+          });
+          return;
+        }
         throw new Error(result.error || 'Failed to resend confirmation email');
       }
 
@@ -214,9 +223,14 @@ export default function ConfirmPage() {
 
           {/* Show resend option only when NOT on confirmation link */}
           {type === 'email' && email && !hasTokens && (
-            <div className="space-y-2">
+            <div className="space-y-3">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-xs text-amber-800">
+                  <strong>Note:</strong> Confirmation emails may take a few minutes. Please check your <strong>spam/junk folder</strong> before resending. You can only resend once per hour.
+                </p>
+              </div>
               <p className="text-sm text-muted-foreground text-center">
-                Didn't receive the email? Check your spam folder or:
+                Didn't receive the email?
               </p>
               <Button 
                 variant="outline" 
