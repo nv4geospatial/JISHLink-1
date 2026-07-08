@@ -521,7 +521,7 @@ router.post(
             type: 'signup',
             email: email.toLowerCase(),
             options: {
-              email_redirect_to: `${req.headers.origin || (process.env.MOBILE_APP_URL || 'http://localhost:3000')}/confirm?type=email`,
+              email_redirect_to: `${process.env.DASHBOARD_URL || req.headers.origin || 'http://localhost:3000'}/confirm?type=email`,
             },
           }),
         });
@@ -678,8 +678,9 @@ router.post(
         return;
       }
 
+      const dashboardUrl = process.env.DASHBOARD_URL || req.headers.origin || 'http://localhost:3000';
       const { error } = await supabase.auth.resetPasswordForEmail(email.toLowerCase(), {
-        redirectTo: `${req.headers.origin || (process.env.MOBILE_APP_URL || 'http://localhost:3000')}/login?reset=true`,
+        redirectTo: `${dashboardUrl}/login?reset=true`,
       });
 
       if (error) {
@@ -750,7 +751,7 @@ router.post(
           type: 'signup',
           email: email.toLowerCase(),
           options: {
-            email_redirect_to: `${req.headers.origin || (process.env.MOBILE_APP_URL || 'http://localhost:3000')}/confirm?type=email`,
+            email_redirect_to: `${process.env.DASHBOARD_URL || req.headers.origin || 'http://localhost:3000'}/confirm?type=email`,
           },
         }),
       });

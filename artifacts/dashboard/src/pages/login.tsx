@@ -10,13 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import logoPath from '@assets/logo_1782993196781.jpeg';
 import { Loader2, ArrowLeft } from 'lucide-react';
-import { 
-  useEmployeeLogin, 
-  useSendEmployeeOtp, 
-  useVerifyEmployeeOtp, 
-  useEmployeeForgotPassword, 
-  useEmployeeResetPassword 
-} from '@workspace/api-client-react';
+
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
@@ -40,19 +34,7 @@ export default function LoginPage() {
   const [phoneOtp, setPhoneOtp] = useState('');
   const [phoneStep, setPhoneStep] = useState<'phone' | 'otp'>('phone');
 
-  // Employee state
-  const [empCode, setEmpCode] = useState('');
-  const [empPassword, setEmpPassword] = useState('');
-  const [empOtp, setEmpOtp] = useState('');
-  const [empStep, setEmpStep] = useState<'login' | 'otp' | 'forgot' | 'reset'>('login');
-  const [empNewPassword, setEmpNewPassword] = useState('');
-
   // Hooks
-  const loginMutation = useEmployeeLogin();
-  const sendOtpMutation = useSendEmployeeOtp();
-  const verifyOtpMutation = useVerifyEmployeeOtp();
-  const forgotMutation = useEmployeeForgotPassword();
-  const resetMutation = useEmployeeResetPassword();
 
   // Detect recovery token or confirmation from URL on mount
   useEffect(() => {
@@ -345,84 +327,7 @@ const API_BASE = rawApiUrl.replace(/\/$/, '') + '/api';
     }
   };
 
-  const handleEmployeeLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    loginMutation.mutate(
-      { data: { employee_code: empCode, password: empPassword } },
-      {
-        onSuccess: (data) => {
-          toast({ title: "Employee Login successful" });
-          // Normally would set employee token, but this is an admin dashboard
-          // So we just mock the success state
-        },
-        onError: (err: any) => {
-          toast({ title: "Login failed", description: err.message, variant: "destructive" });
-        }
-      }
-    );
-  };
 
-  const handleEmployeeOtpRequest = () => {
-    sendOtpMutation.mutate(
-      { data: { employee_code: empCode, purpose: 'login' } },
-      {
-        onSuccess: () => {
-          toast({ title: "OTP Sent" });
-          setEmpStep('otp');
-        },
-        onError: (err: any) => {
-          toast({ title: "Failed to send OTP", description: err.message, variant: "destructive" });
-        }
-      }
-    );
-  };
-
-  const handleEmployeeOtpVerify = (e: React.FormEvent) => {
-    e.preventDefault();
-    verifyOtpMutation.mutate(
-      { data: { employee_code: empCode, otp: empOtp, purpose: 'login' } },
-      {
-        onSuccess: () => {
-          toast({ title: "OTP Verified successfully" });
-        },
-        onError: (err: any) => {
-          toast({ title: "Verification failed", description: err.message, variant: "destructive" });
-        }
-      }
-    );
-  };
-
-  const handleForgotPassword = (e: React.FormEvent) => {
-    e.preventDefault();
-    forgotMutation.mutate(
-      { data: { employee_code: empCode } },
-      {
-        onSuccess: () => {
-          toast({ title: "Reset code sent" });
-          setEmpStep('reset');
-        },
-        onError: (err: any) => {
-          toast({ title: "Request failed", description: err.message, variant: "destructive" });
-        }
-      }
-    );
-  };
-
-  const handleResetPassword = (e: React.FormEvent) => {
-    e.preventDefault();
-    resetMutation.mutate(
-      { data: { employee_code: empCode, reset_code: empOtp, new_password: empNewPassword } },
-      {
-        onSuccess: () => {
-          toast({ title: "Password reset successful" });
-          setEmpStep('login');
-        },
-        onError: (err: any) => {
-          toast({ title: "Reset failed", description: err.message, variant: "destructive" });
-        }
-      }
-    );
-  };
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center bg-background p-4 relative overflow-hidden">
@@ -441,13 +346,7 @@ const API_BASE = rawApiUrl.replace(/\/$/, '') + '/api';
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="admin" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger value="admin">Admin</TabsTrigger>
-              <TabsTrigger value="employee">Employee</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="admin">
+          <div className="w-full">
               {adminStep === 'login' && (
                 <>
                   <form onSubmit={handleAdminLogin} className="space-y-4">
@@ -635,128 +534,7 @@ const API_BASE = rawApiUrl.replace(/\/$/, '') + '/api';
                   </div>
                 </form>
               )}
-            </TabsContent>
-            
-            <TabsContent value="employee">
-              {empStep === 'login' && (
-                <form onSubmit={handleEmployeeLogin} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Employee Code</Label>
-                    <Input 
-                      value={empCode}
-                      onChange={(e) => setEmpCode(e.target.value)}
-                      required
-                      className="h-11"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <Label>Password</Label>
-                      <button type="button" onClick={() => setEmpStep('forgot')} className="text-xs text-primary hover:underline">
-                        Forgot?
-                      </button>
-                    </div>
-                    <Input 
-                      type="password" 
-                      value={empPassword}
-                      onChange={(e) => setEmpPassword(e.target.value)}
-                      required
-                      className="h-11"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    <Button type="button" variant="outline" className="h-11" onClick={handleEmployeeOtpRequest} disabled={!empCode || sendOtpMutation.isPending}>
-                      {sendOtpMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Login with OTP
-                    </Button>
-                    <Button type="submit" className="h-11" disabled={loginMutation.isPending}>
-                      {loginMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Sign In
-                    </Button>
-                  </div>
-                </form>
-              )}
-
-              {empStep === 'otp' && (
-                <form onSubmit={handleEmployeeOtpVerify} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Enter OTP</Label>
-                    <Input 
-                      value={empOtp}
-                      onChange={(e) => setEmpOtp(e.target.value)}
-                      required
-                      className="h-11"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button type="button" variant="outline" className="h-11 flex-1" onClick={() => setEmpStep('login')}>
-                      Back
-                    </Button>
-                    <Button type="submit" className="h-11 flex-1" disabled={verifyOtpMutation.isPending}>
-                      {verifyOtpMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Verify OTP
-                    </Button>
-                  </div>
-                </form>
-              )}
-
-              {empStep === 'forgot' && (
-                <form onSubmit={handleForgotPassword} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Employee Code</Label>
-                    <Input 
-                      value={empCode}
-                      onChange={(e) => setEmpCode(e.target.value)}
-                      required
-                      className="h-11"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button type="button" variant="outline" className="h-11 flex-1" onClick={() => setEmpStep('login')}>
-                      Back
-                    </Button>
-                    <Button type="submit" className="h-11 flex-1" disabled={forgotMutation.isPending}>
-                      {forgotMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Send Reset Code
-                    </Button>
-                  </div>
-                </form>
-              )}
-
-              {empStep === 'reset' && (
-                <form onSubmit={handleResetPassword} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Reset Code (OTP)</Label>
-                    <Input 
-                      value={empOtp}
-                      onChange={(e) => setEmpOtp(e.target.value)}
-                      required
-                      className="h-11"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>New Password</Label>
-                    <Input 
-                      type="password"
-                      value={empNewPassword}
-                      onChange={(e) => setEmpNewPassword(e.target.value)}
-                      required
-                      className="h-11"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button type="button" variant="outline" className="h-11 flex-1" onClick={() => setEmpStep('login')}>
-                      Cancel
-                    </Button>
-                    <Button type="submit" className="h-11 flex-1" disabled={resetMutation.isPending}>
-                      {resetMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Reset Password
-                    </Button>
-                  </div>
-                </form>
-              )}
-            </TabsContent>
-          </Tabs>
+            </div>
         </CardContent>
         <CardFooter className="flex justify-center border-t p-4 bg-muted/20">
           <p className="text-xs text-muted-foreground text-center">

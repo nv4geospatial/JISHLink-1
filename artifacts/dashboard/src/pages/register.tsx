@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { useLocation, Link } from 'wouter';
-import { supabase } from '@/lib/supabase';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import logoPath from '@assets/logo_1782993196781.jpeg';
 import { Loader2, ArrowLeft } from 'lucide-react';
@@ -26,10 +25,8 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Phone registration state
+  // Phone number for profile (optional, used for OTP login later)
   const [phone, setPhone] = useState('');
-  const [phoneOtp, setPhoneOtp] = useState('');
-  const [phoneStep, setPhoneStep] = useState<'phone' | 'otp'>('phone');
 
   const handleEmailRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,69 +100,7 @@ export default function RegisterPage() {
     }
   };
 
-  const handlePhoneOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOtp({ phone });
-      if (error) {
-        // Provide helpful message for unsupported phone provider
-        if (error.message?.includes('provider') || error.message?.includes('Unsupported') || error.status === 400) {
-          toast({ 
-            title: "Phone OTP not available", 
-            description: "SMS provider is not configured in Supabase. Please use email registration or ask admin to enable Twilio in Supabase settings.", 
-            variant: "destructive" 
-          });
-        } else {
-          throw error;
-        }
-        return;
-      }
-      setPhoneStep('otp');
-      toast({ title: "OTP sent", description: `Check your phone ${phone}` });
-    } catch (err: any) {
-      toast({ title: "Failed", description: err.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handlePhoneVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        phone,
-        token: phoneOtp,
-        type: 'sms',
-      });
-      if (error) throw error;
-
-      if (data.user) {
-        // Insert into users table with pending status
-        const { error: userError } = await supabase.from('users').insert({
-          id: data.user.id,
-          phone: phone,
-          name: name || null,
-          role_id: null,
-          account_status: 'pending',
-          phone_verified: true,
-        });
-        if (userError) console.error('User insert error:', userError);
-      }
-
-      toast({
-        title: "Phone number confirmed!",
-        description: "Your phone has been verified. An admin will assign your role. Please wait for approval.",
-      });
-      // Redirect to login with phone confirmed flag
-      setLocation('/login?phone_confirmed=true');
-    } catch (err: any) {
-      toast({ title: "Verification failed", description: err.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center bg-background p-4 relative overflow-hidden">
@@ -179,19 +114,12 @@ export default function RegisterPage() {
           <div>
             <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
             <CardDescription>
-              Register as admin or recruiter
+              Register as admin or recruiter with email
             </CardDescription>
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="email" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger value="email">Email</TabsTrigger>
-              <TabsTrigger value="phone">Phone</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="email">
-              <form onSubmit={handleEmailRegister} className="space-y-4">
+          <form onSubmit={handleEmailRegister} className="space-y-4">
                 <div className="space-y-2">
                   <Label>Full Name</Label>
                   <Input 
@@ -212,6 +140,16 @@ export default function RegisterPage() {
                     className="h-11"
                     placeholder="you@company.com"
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>Phone Number</Label>
+                  <Input 
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="h-11"
+                    placeholder="+91-9876543210"
+                  />
+                  <p className="text-xs text-muted-foreground">Optional. Used for OTP login after account approval.</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Password</Label>
@@ -238,62 +176,6 @@ export default function RegisterPage() {
                     {cooldown > 0 ? `Wait ${cooldown}s` : 'Create Account'}
                 </Button>
               </form>
-            </TabsContent>
-            
-            <TabsContent value="phone">
-              {phoneStep === 'phone' && (
-                <form onSubmit={handlePhoneOtp} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Full Name (Optional)</Label>
-                    <Input 
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="h-11"
-                      placeholder="John Doe"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Phone Number</Label>
-                    <Input 
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      required
-                      className="h-11"
-                      placeholder="+91-9876543210"
-                    />
-                  </div>
-                  <Button type="submit" className="w-full h-11" disabled={loading}>
-                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Send OTP
-                  </Button>
-                </form>
-              )}
-
-              {phoneStep === 'otp' && (
-                <form onSubmit={handlePhoneVerify} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Enter OTP sent to {phone}</Label>
-                    <Input 
-                      value={phoneOtp}
-                      onChange={(e) => setPhoneOtp(e.target.value)}
-                      required
-                      className="h-11"
-                      placeholder="6-digit code"
-                      maxLength={6}
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button type="button" variant="outline" className="h-11 flex-1" onClick={() => setPhoneStep('phone')}>
-                      Back
-                    </Button>
-                    <Button type="submit" className="h-11 flex-1" disabled={loading}>
-                      {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Verify & Register'}
-                    </Button>
-                  </div>
-                </form>
-              )}
-            </TabsContent>
-          </Tabs>
         </CardContent>
         <CardFooter className="flex flex-col gap-2 border-t p-4 bg-muted/20">
           <Link href="/login" className="text-sm text-primary hover:underline flex items-center gap-1">
