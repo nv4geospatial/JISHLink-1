@@ -1,5 +1,5 @@
 // JISHLink Service Worker — minimal offline shell caching
-const CACHE = "jishlink-v1";
+const CACHE = "jishlink-v3";
 const SHELL = ["/mobile/", "/mobile/index.html"];
 
 self.addEventListener("install", (e) => {
@@ -17,10 +17,27 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
-  // For navigation requests, serve shell from cache (SPA fallback)
+  // For navigation requests, serve from cache first for instant load,
+  // fallback to network if cache miss
   if (e.request.mode === "navigate") {
     e.respondWith(
-      fetch(e.request).catch(() => caches.match("/mobile/index.html"))
+      caches.match("/mobile/index.html").then((cached) => {
+        // Return cached immediately for speed; update in background
+        if (cached) {
+          e.waitUntil(
+            fetch(e.request)
+              .then((response) => {
+                if (response && response.status === 200) {
+                  return caches.open(CACHE).then((cache) => cache.put("/mobile/index.html", response.clone()));
+                }
+              })
+              .catch(() => {})
+          );
+          return cached;
+        }
+        // No cache: fetch from network
+        return fetch(e.request).catch(() => caches.match("/mobile/index.html"));
+      })
     );
     return;
   }

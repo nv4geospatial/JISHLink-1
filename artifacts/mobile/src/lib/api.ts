@@ -10,8 +10,8 @@ const BASE = import.meta.env.BASE_URL ?? "/mobile/";
 export function apiUrl(path: string): string {
   // Normalise: ensure path starts with /
   const p = path.startsWith("/") ? path : `/${path}`;
-  // API server artifact is mounted at /api by the Replit path-based proxy
-  return `/api${p}`;
+  const base = (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "");
+  return `${base}/api${p}`;
 }
 
 export class ApiError extends Error {

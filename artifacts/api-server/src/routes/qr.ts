@@ -31,7 +31,7 @@ router.post(
     const qrToken = crypto.randomBytes(16).toString("hex");
     const appUrl = process.env.REPLIT_DEV_DOMAIN
       ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-      : process.env.MOBILE_APP_URL || "https://jishlink.app";
+      : process.env.PROD_MOBILE_APP_URL || process.env.MOBILE_APP_URL || "https://jishlink.com/mobile";
     const deepLink = `${appUrl}/attend/${qrToken}`;
 
     // Generate QR as PNG data URL
