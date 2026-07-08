@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
-import { supabase } from "../lib/supabase";
+import { supabase, supabaseAnon } from "../lib/supabase";
 import { signEmployeeToken } from "../lib/auth";
 import {
   generateOtp,
@@ -461,15 +461,22 @@ router.post(
         return;
       }
 
-      // Create auth user via Supabase (service_role key = no rate limits)
-      // email_confirm: false = user must confirm email before login (SMTP now configured)
+      // Create auth user via anon-key signUp() — this triggers GoTrue's email pipeline
+      // and sends confirmation email through your configured Resend SMTP
       const phoneValue = phone && phone.trim() ? phone.trim() : null;
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      
+      if (!supabaseAnon) {
+        res.status(500).json({ error: "Server configuration error: anon key not set" });
+        return;
+      }
+
+      const { data: authData, error: authError } = await supabaseAnon.auth.signUp({
         email: email.toLowerCase(),
         password,
-        email_confirm: false,
-        phone: phoneValue,
-        user_metadata: { full_name: name, phone: phoneValue },
+        options: {
+          data: { full_name: name, phone: phoneValue },
+          emailRedirectTo: `${process.env.DASHBOARD_URL || req.headers.origin || 'http://localhost:3000'}/confirm?type=email`,
+        },
       });
 
       if (authError) {
@@ -507,77 +514,13 @@ router.post(
         logger.error('Error inserting user record: ' + userError.message);
       }
 
-      // Send confirmation email using Supabase Auth REST API
-      // The /auth/v1/resend endpoint triggers Supabase to send the confirmation email template
-      const supabaseUrl = process.env.SUPABASE_URL || '';
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-      let emailSent = false;
-      let confirmationLink: string | undefined;
-
-      try {
-        const resendResponse = await fetch(`${supabaseUrl}/auth/v1/resend`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${serviceRoleKey}`,
-            'apikey': serviceRoleKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            type: 'signup',
-            email: email.toLowerCase(),
-            options: {
-              email_redirect_to: `${process.env.DASHBOARD_URL || req.headers.origin || 'http://localhost:3000'}/confirm?type=email`,
-            },
-          }),
-        });
-
-        if (resendResponse.ok) {
-          emailSent = true;
-          logger.info({ email: email.toLowerCase() }, 'Confirmation email sent via resend API');
-        } else {
-          const resendResult = await resendResponse.json();
-          logger.error('Resend API failed: ' + JSON.stringify(resendResult));
-          
-          // Fallback: generate confirmation link manually
-          const linkResponse = await fetch(`${supabaseUrl}/auth/v1/admin/generate_link`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${serviceRoleKey}`,
-              'apikey': serviceRoleKey,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              type: 'signup',
-              email: email.toLowerCase(),
-              password: password,
-              options: {
-                redirect_to: `${req.headers.origin || 'http://localhost:3000'}/confirm?type=email`,
-              },
-            }),
-          });
-
-          const linkResult = await linkResponse.json() as { action_link?: string };
-          if (linkResponse.ok && linkResult.action_link) {
-            confirmationLink = linkResult.action_link;
-            logger.info({ email: email.toLowerCase() }, 'Confirmation link generated as fallback');
-          } else {
-            logger.error('Generate link fallback failed: ' + JSON.stringify(linkResult));
-          }
-        }
-      } catch (emailErr: any) {
-        logger.error('Exception sending confirmation email: ' + emailErr.message);
-      }
-
+      // signUp() already triggered the confirmation email via Resend SMTP
+      // No manual email sending needed
       res.status(201).json({
         success: true,
-        message: emailSent 
-          ? "Registration successful. Please check your email to confirm your account before logging in."
-          : confirmationLink 
-            ? "Registration successful. Use the link below to confirm your email (dev mode)."
-            : "Registration successful but confirmation email could not be sent. Please contact admin.",
+        message: "Registration successful. Please check your email to confirm your account before logging in.",
         user_id: authData.user.id,
-        email_sent: emailSent,
-        dev_confirmation_link: process.env.NODE_ENV !== 'production' ? confirmationLink : undefined,
+        email_sent: true,
       });
     } catch (err: any) {
       logger.error('Admin registration error: ' + err.message);
@@ -742,14 +685,20 @@ router.post(
       }
 
       // Resend confirmation email using Supabase Auth REST API
+      // Use anon key for resend so it goes through GoTrue's email pipeline
       const supabaseUrl = process.env.SUPABASE_URL || '';
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+      const anonKey = process.env.SUPABASE_ANON_KEY || '';
+      
+      if (!anonKey) {
+        res.status(500).json({ error: "Server configuration error: anon key not set" });
+        return;
+      }
       
       const resendResponse = await fetch(`${supabaseUrl}/auth/v1/resend`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${serviceRoleKey}`,
-          'apikey': serviceRoleKey,
+          'Authorization': `Bearer ${anonKey}`,
+          'apikey': anonKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -846,13 +795,47 @@ router.post(
     }
 
     try {
-      // Find user by phone in users table (flexible matching)
+      // Find user by phone in users table (try multiple formats)
       const cleanPhone = phone.replace(/\D/g, '');
-      const { data: userRecord, error: userError } = await supabase
+      const withPlus = cleanPhone.startsWith('91') ? `+${cleanPhone}` : `+91${cleanPhone}`;
+      
+      // Try exact match first, then ilike fallback
+      let { data: userRecord, error: userError } = await supabase
         .from('users')
         .select('id, name, email, phone, account_status, role_id')
-        .or(`phone.eq.${phone},phone.eq.${cleanPhone},phone.eq.+${cleanPhone},phone.ilike.%${cleanPhone}`)
-        .single();
+        .eq('phone', phone)
+        .maybeSingle();
+
+      if (!userRecord && !userError) {
+        // Try digits-only
+        ({ data: userRecord, error: userError } = await supabase
+          .from('users')
+          .select('id, name, email, phone, account_status, role_id')
+          .eq('phone', cleanPhone)
+          .maybeSingle());
+      }
+
+      if (!userRecord && !userError) {
+        // Try with + prefix
+        ({ data: userRecord, error: userError } = await supabase
+          .from('users')
+          .select('id, name, email, phone, account_status, role_id')
+          .eq('phone', withPlus)
+          .maybeSingle());
+      }
+
+      if (!userRecord && !userError) {
+        // Last resort: ilike on digits
+        ({ data: userRecord, error: userError } = await supabase
+          .from('users')
+          .select('id, name, email, phone, account_status, role_id')
+          .ilike('phone', `%${cleanPhone}`)
+          .maybeSingle());
+      }
+
+      if (userError) {
+        logger.error({ err: userError.message, phone, cleanPhone }, "send-phone-otp: user lookup error");
+      }
 
       if (userError || !userRecord) {
         res.status(404).json({ error: "No account found with this phone number" });
@@ -919,13 +902,43 @@ router.post(
     }
 
     try {
-      // Find user by phone (flexible matching)
+      // Find user by phone (try multiple formats)
       const cleanPhone = phone.replace(/\D/g, '');
-      const { data: userRecord, error: userError } = await supabase
+      const withPlus = cleanPhone.startsWith('91') ? `+${cleanPhone}` : `+91${cleanPhone}`;
+      
+      let { data: userRecord, error: userError } = await supabase
         .from('users')
         .select('id, name, email, phone, account_status, role_id')
-        .or(`phone.eq.${phone},phone.eq.${cleanPhone},phone.eq.+${cleanPhone},phone.ilike.%${cleanPhone}`)
-        .single();
+        .eq('phone', phone)
+        .maybeSingle();
+
+      if (!userRecord && !userError) {
+        ({ data: userRecord, error: userError } = await supabase
+          .from('users')
+          .select('id, name, email, phone, account_status, role_id')
+          .eq('phone', cleanPhone)
+          .maybeSingle());
+      }
+
+      if (!userRecord && !userError) {
+        ({ data: userRecord, error: userError } = await supabase
+          .from('users')
+          .select('id, name, email, phone, account_status, role_id')
+          .eq('phone', withPlus)
+          .maybeSingle());
+      }
+
+      if (!userRecord && !userError) {
+        ({ data: userRecord, error: userError } = await supabase
+          .from('users')
+          .select('id, name, email, phone, account_status, role_id')
+          .ilike('phone', `%${cleanPhone}`)
+          .maybeSingle());
+      }
+
+      if (userError) {
+        logger.error({ err: userError.message, phone, cleanPhone }, "verify-phone-otp: user lookup error");
+      }
 
       if (userError || !userRecord) {
         res.status(404).json({ error: "User not found" });
@@ -938,7 +951,7 @@ router.post(
       }
 
       // Find latest unused, unexpired OTP
-      const { data: otpLog } = await supabase
+      const { data: otpLog, error: otpError } = await supabase
         .from("otp_logs")
         .select("id, otp_hash, expires_at")
         .eq("employee_id", userRecord.id)
@@ -947,7 +960,11 @@ router.post(
         .gt("expires_at", new Date().toISOString())
         .order("created_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
+
+      if (otpError) {
+        logger.error({ err: otpError.message, user_id: userRecord.id }, "verify-phone-otp: otp lookup error");
+      }
 
       if (!otpLog) {
         logger.warn({ 
@@ -971,24 +988,7 @@ router.post(
         .update({ used_at: new Date().toISOString() })
         .eq("id", otpLog.id);
 
-      // Get the auth user to create a session
-      const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(userRecord.id);
-
-      if (authError || !authUser.user) {
-        res.status(500).json({ error: "Failed to get auth user" });
-        return;
-      }
-
-      // Create a session for the user
-      const { data: sessionData, error: sessionError } = await supabase.auth.admin.createUser({
-        email: userRecord.email,
-        email_confirm: true,
-        user_metadata: { full_name: userRecord.name },
-      });
-
-      // Actually, we need to sign in the user. Let's use a different approach:
-      // Generate a custom JWT token for the admin
-      const { signEmployeeToken } = await import('../lib/auth');
+      // Issue our own JWT for the admin (no need to touch Supabase Auth here)
       const token = signEmployeeToken({
         employee_id: userRecord.id,
         employee_code: userRecord.email,
