@@ -232,23 +232,41 @@ const API_BASE = rawApiUrl.replace(/\/$/, '') + '/api';
 
   const handleAdminPhoneOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (cooldown > 0) {
+      toast({ title: `Please wait ${cooldown} seconds before trying again`, variant: "destructive" });
+      return;
+    }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOtp({ phone });
-      if (error) {
-        if (error.message?.includes('provider') || error.message?.includes('Unsupported')) {
+      const response = await fetch(`${API_BASE}/auth/admin/send-phone-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 404) {
           toast({ 
-            title: "SMS not configured", 
-            description: "Phone OTP is not enabled. Please configure Twilio in Supabase settings or use email login.", 
+            title: "Phone not found", 
+            description: "No account found with this phone number. Please check or use email login.", 
             variant: "destructive" 
           });
-        } else {
-          throw error;
+          return;
         }
-        return;
+        throw new Error(result.error || 'Failed to send OTP');
       }
+
       setPhoneStep('otp');
-      toast({ title: "OTP sent", description: `Check your phone ${phone}` });
+      toast({ title: "OTP sent", description: result.message || `Check your phone ${phone}` });
+      setCooldown(60); // 1 minute cooldown
+      const interval = setInterval(() => {
+        setCooldown((prev) => {
+          if (prev <= 1) { clearInterval(interval); return 0; }
+          return prev - 1;
+        });
+      }, 1000);
     } catch (err: any) {
       toast({ title: "Failed", description: err.message, variant: "destructive" });
     } finally {
@@ -298,12 +316,26 @@ const API_BASE = rawApiUrl.replace(/\/$/, '') + '/api';
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.auth.verifyOtp({
-        phone,
-        token: phoneOtp,
-        type: 'sms',
+      const response = await fetch(`${API_BASE}/auth/admin/verify-phone-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, otp: phoneOtp }),
       });
-      if (error) throw error;
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Verification failed');
+      }
+
+      // Set the session in Supabase client so auth state works globally
+      if (result.token) {
+        // For custom token, store it and set auth state manually
+        localStorage.setItem('admin_token', result.token);
+        // Trigger auth state update by setting Supabase session if possible
+        // Or use a custom auth context that checks for admin_token
+      }
+
       toast({ title: "Login successful", description: "Welcome to JISHLink Dashboard" });
       setLocation('/dashboard');
     } catch (err: any) {

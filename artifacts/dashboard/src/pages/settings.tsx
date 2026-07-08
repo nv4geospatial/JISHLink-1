@@ -56,6 +56,10 @@ export default function SettingsPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/50 p-1 flex-wrap">
+          <TabsTrigger value="account" className="data-[state=active]:bg-sidebar data-[state=active]:text-sidebar-foreground">
+            <UserCheck className="w-4 h-4 mr-2" />
+            My Account
+          </TabsTrigger>
           <TabsTrigger value="roles" className="data-[state=active]:bg-sidebar data-[state=active]:text-sidebar-foreground">
             <Shield className="w-4 h-4 mr-2" />
             Roles & Permissions
@@ -76,6 +80,10 @@ export default function SettingsPage() {
           )}
         </TabsList>
 
+        <TabsContent value="account" className="m-0">
+          <AccountSettings />
+        </TabsContent>
+
         <TabsContent value="roles" className="m-0">
           <RolesSettings />
         </TabsContent>
@@ -95,6 +103,106 @@ export default function SettingsPage() {
         )}
       </Tabs>
     </div>
+  );
+}
+
+function AccountSettings() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+  });
+
+  useEffect(() => {
+    async function fetchUser() {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        const { data } = await supabase
+          .from('users')
+          .select('id, name, email, phone')
+          .eq('id', authUser.id)
+          .single();
+        if (data) {
+          setUser(data);
+          setFormData({
+            name: data.name || '',
+            email: data.email || '',
+            phone: data.phone || '',
+          });
+        }
+      }
+    }
+    fetchUser();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({
+          name: formData.name,
+          phone: formData.phone,
+        })
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      toast({ title: "Profile updated successfully" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card className="max-w-xl">
+      <CardHeader>
+        <CardTitle>My Account</CardTitle>
+        <CardDescription>Update your profile information and phone number for OTP login.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Full Name</label>
+            <Input 
+              value={formData.name} 
+              onChange={e => setFormData({...formData, name: e.target.value})}
+              placeholder="Your name"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Email</label>
+            <Input 
+              type="email"
+              value={formData.email} 
+              disabled
+              className="bg-muted"
+            />
+            <p className="text-xs text-muted-foreground">Email cannot be changed.</p>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Phone Number</label>
+            <Input 
+              value={formData.phone} 
+              onChange={e => setFormData({...formData, phone: e.target.value})}
+              placeholder="+91-9876543210"
+            />
+            <p className="text-xs text-muted-foreground">Used for OTP login. Include country code.</p>
+          </div>
+          <Button type="submit" disabled={loading} className="w-full sm:w-auto">
+            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+            Save Changes
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
