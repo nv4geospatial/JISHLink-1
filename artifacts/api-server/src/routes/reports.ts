@@ -92,39 +92,65 @@ router.get(
         ? await getRecruiterSiteIds(authed.userId)
         : undefined;
 
-    const { data: records, error } = await fetchAttendanceRecords({
+    // 1. Fetch all active employees (scoped by site if filtered)
+    let employeesQuery = supabase
+      .from("employees")
+      .select("id, employee_code, name, site_id, status")
+      .eq("status", "active");
+
+    if (req.query.siteId) {
+      employeesQuery = employeesQuery.eq("site_id", req.query.siteId as string);
+    } else if (siteIds !== undefined && siteIds.length > 0) {
+      employeesQuery = employeesQuery.in("site_id", siteIds);
+    }
+
+    const { data: allEmployees, error: empError } = await employeesQuery;
+
+    if (empError) {
+      res.status(500).json({ error: "Failed to fetch employees" });
+      return;
+    }
+
+    // 2. Fetch attendance records for the date
+    const { data: attendanceRecords, error: attError } = await fetchAttendanceRecords({
       date,
       siteId: req.query.siteId as string | undefined,
       employeeId: req.query.employeeId as string | undefined,
       siteIds,
     });
 
-    if (error) {
+    if (attError) {
       res.status(500).json({ error: "Failed to fetch attendance" });
       return;
     }
 
-    const mapped = (records || []).map((r) => {
+    // 3. Build a map of attendance by employee_id
+    const attMap = new Map<string, AttRow>();
+    for (const r of attendanceRecords || []) {
       const row = r as unknown as AttRow;
+      attMap.set(row.employee_id, row);
+    }
+
+    // 4. Merge: all employees + their attendance (or absent if none)
+    const mapped = (allEmployees || []).map((emp: any) => {
+      const att = attMap.get(emp.id);
       return {
-        id: row.id,
-        employee_id: row.employee_id,
-        employee_code: row.employees?.employee_code ?? "",
-        employee_name: row.employees?.name ?? "",
-        site_id: row.site_id,
-        site_name: row.sites?.name ?? "",
-        date: row.date,
-        check_in_time: row.check_in_time,
-        check_out_time: row.check_out_time,
-        status: row.status,
-        check_in_lat: row.check_in_lat,
-        check_in_lng: row.check_in_lng,
+        id: att?.id ?? "",
+        employee_id: emp.id,
+        employee_code: emp.employee_code ?? "",
+        employee_name: emp.name ?? "",
+        site_id: emp.site_id,
+        site_name: att?.sites?.name ?? "",
+        date: date,
+        check_in_time: att?.check_in_time ?? null,
+        check_out_time: att?.check_out_time ?? null,
+        status: att?.status ?? "absent",
+        check_in_lat: att?.check_in_lat ?? null,
+        check_in_lng: att?.check_in_lng ?? null,
       };
     });
 
-    const present = mapped.filter((r) =>
-      ["present", "late"].includes(r.status),
-    ).length;
+    const present = mapped.filter((r) => r.status === "present").length;
     const late = mapped.filter((r) => r.status === "late").length;
     const earlyOut = mapped.filter((r) => r.status === "early_out").length;
     const absent = mapped.filter((r) => r.status === "absent").length;

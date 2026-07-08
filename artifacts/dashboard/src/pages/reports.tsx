@@ -56,7 +56,7 @@ export default function ReportsPage() {
       date: dailyDate, 
       ...(dailySite !== 'all' ? { siteId: dailySite } : {}) 
     },
-    { query: { enabled: activeTab === 'daily' } }
+    { query: { queryKey: ['dailyReport', dailyDate, dailySite], enabled: activeTab === 'daily' } }
   );
 
   const { data: monthlyData, isLoading: monthlyLoading } = useGetMonthlyReport(
@@ -65,7 +65,7 @@ export default function ReportsPage() {
       month: monthlyMonth,
       ...(monthlySite !== 'all' ? { siteId: monthlySite } : {}) 
     },
-    { query: { enabled: activeTab === 'monthly' } }
+    { query: { queryKey: ['monthlyReport', monthlyYear, monthlyMonth, monthlySite], enabled: activeTab === 'monthly' } }
   );
 
   const excelParams: any = activeTab === 'daily' 
@@ -74,12 +74,12 @@ export default function ReportsPage() {
 
   const { refetch: fetchExcel, isFetching: excelLoading } = useExportExcelReport(
     excelParams,
-    { query: { enabled: false } }
+    { query: { queryKey: ['exportExcel', excelParams], enabled: false } }
   );
 
   const { refetch: fetchPdf, isFetching: pdfLoading } = useExportPdfReport(
-    excelParams, // pdf uses same params
-    { query: { enabled: false } }
+    excelParams,
+    { query: { queryKey: ['exportPdf', excelParams], enabled: false } }
   );
 
   const downloadBlob = (blob: Blob, filename: string) => {
@@ -215,7 +215,7 @@ export default function ReportsPage() {
                         <Cell className="text-sm">{r.check_out_time ? format(new Date(r.check_out_time), 'h:mm a') : '-'}</Cell>
                         <Cell>
                           <Badge variant={r.status === 'present' ? 'default' : 'secondary'} 
-                                 className={r.status === 'present' ? 'bg-success hover:bg-success' : r.status === 'absent' ? 'bg-destructive text-destructive-foreground hover:bg-destructive' : ''}>
+                                 className={r.status === 'present' ? 'bg-success hover:bg-success' : r.status === 'absent' ? 'bg-destructive text-destructive-foreground hover:bg-destructive' : r.status === 'late' ? 'bg-accent text-accent-foreground hover:bg-accent' : ''}>
                             {r.status?.toUpperCase()}
                           </Badge>
                         </Cell>
