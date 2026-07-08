@@ -62,8 +62,13 @@ export default function RegisterPage() {
       const result = await response.json();
 
       if (!response.ok) {
+        const errorMsg = result.error || result.message || 'Registration failed';
+        
         // Handle specific errors
-        if (response.status === 409 || result.error?.includes('already registered')) {
+        if (response.status === 409 || 
+            errorMsg.toLowerCase().includes('already registered') ||
+            errorMsg.toLowerCase().includes('already exists') ||
+            errorMsg.toLowerCase().includes('user already')) {
           toast({ 
             title: "Email already registered", 
             description: "This email is already in use. Please log in or use forgot password.", 
@@ -87,7 +92,7 @@ export default function RegisterPage() {
           }, 1000);
           return;
         }
-        throw new Error(result.error || 'Registration failed');
+        throw new Error(errorMsg);
       }
 
       toast({
@@ -96,7 +101,8 @@ export default function RegisterPage() {
       });
       setLocation('/confirm?type=email&email=' + encodeURIComponent(email.toLowerCase()));
     } catch (err: any) {
-      toast({ title: "Registration failed", description: err.message, variant: "destructive" });
+      const errorMessage = err.message || err.error || String(err) || 'Unknown error';
+      toast({ title: "Registration failed", description: errorMessage, variant: "destructive" });
     } finally {
       setLoading(false);
     }

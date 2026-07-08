@@ -480,25 +480,32 @@ router.post(
       });
 
       if (authError) {
-        if (authError.message?.includes('already registered') || authError.message?.includes('already exists')) {
+        const errMsg = authError.message || String(authError) || 'Unknown registration error';
+        logger.error({ email: email.toLowerCase(), error: errMsg, raw: authError }, 'signUp failed');
+        
+        if (errMsg.toLowerCase().includes('already registered') || 
+            errMsg.toLowerCase().includes('already exists') ||
+            errMsg.toLowerCase().includes('user already') ||
+            errMsg.toLowerCase().includes('duplicate')) {
           res.status(409).json({ 
             error: "Email already registered", 
             message: "This email is already in use. Please log in or use forgot password." 
           });
           return;
         }
-        res.status(400).json({ error: authError.message });
+        res.status(400).json({ error: errMsg });
         return;
       }
 
-      if (!authData.user) {
+      const newUser = authData.user || authData.session?.user;
+      if (!newUser) {
         res.status(500).json({ error: "User created but no user data returned" });
         return;
       }
 
       // Insert into users table with pending status (email NOT verified yet)
       const { error: userError } = await supabase.from('users').insert({
-        id: authData.user.id,
+        id: newUser.id,
         email: email.toLowerCase(),
         name: name || null,
         phone: phoneValue,
@@ -519,7 +526,7 @@ router.post(
       res.status(201).json({
         success: true,
         message: "Registration successful. Please check your email to confirm your account before logging in.",
-        user_id: authData.user.id,
+        user_id: newUser.id,
         email_sent: true,
       });
     } catch (err: any) {
