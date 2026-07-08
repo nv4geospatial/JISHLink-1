@@ -462,11 +462,11 @@ router.post(
       }
 
       // Create auth user via Supabase (service_role key = no rate limits)
-      // email_confirm: false = user must confirm email before login
+      // email_confirm: true = user can login immediately (bypass email issues for now)
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: email.toLowerCase(),
         password,
-        email_confirm: false,
+        email_confirm: true,
         user_metadata: { full_name: name },
       });
 
@@ -487,15 +487,16 @@ router.post(
         return;
       }
 
-      // Insert into users table with pending status (email NOT verified yet)
+      // Insert into users table with active status (auto-confirmed)
+      const phoneValue = phone && phone.trim() ? phone.trim() : null;
       const { error: userError } = await supabase.from('users').insert({
         id: authData.user.id,
         email: email.toLowerCase(),
         name: name || null,
-        phone: phone || null,
+        phone: phoneValue,
         role_id: null,
-        account_status: 'pending',
-        email_verified: false,
+        account_status: 'active',
+        email_verified: true,
       });
 
       if (userError && !userError.message?.includes('duplicate')) {

@@ -41,6 +41,16 @@ export default function LoginPage() {
     const hash = window.location.hash;
     const search = new URLSearchParams(window.location.search);
     
+    // Check for successful registration
+    if (search.get('registered') === 'true') {
+      toast({ 
+        title: "Registration successful!", 
+        description: "Your account has been created. Please log in with your email and password." 
+      });
+      window.history.replaceState(null, '', window.location.pathname);
+      return;
+    }
+
     // Check for email confirmation
     if (search.get('confirmed') === 'true') {
       toast({ 

@@ -90,9 +90,9 @@ export default function RegisterPage() {
 
       toast({
         title: "Registration successful",
-        description: "Please check your email and click the confirmation link before logging in.",
+        description: "Your account has been created. You can now log in.",
       });
-      setLocation('/confirm?type=email&email=' + encodeURIComponent(email.toLowerCase()));
+      setLocation('/login?registered=true');
     } catch (err: any) {
       toast({ title: "Registration failed", description: err.message, variant: "destructive" });
     } finally {
