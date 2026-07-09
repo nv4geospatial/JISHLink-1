@@ -416,7 +416,7 @@ function ShiftDialog({ open, onOpenChange, shift, onSuccess }: any) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[400px]">
+      <DialogContent className="sm:max-w-100">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit Shift' : 'Add Shift'}</DialogTitle>
         </DialogHeader>
@@ -645,7 +645,7 @@ function UserDialog({ open, onOpenChange, user, roles, onSuccess }: any) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[450px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit User' : 'Add User'}</DialogTitle>
         </DialogHeader>

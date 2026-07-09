@@ -340,7 +340,7 @@ const API_BASE = rawApiUrl.replace(/\/$/, '') + '/api';
 
 
   return (
-    <div className="min-h-[100dvh] flex items-center justify-center bg-background p-4 relative overflow-hidden">
+    <div className="min-h-dvh flex items-center justify-center bg-background p-4 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-[40vh] bg-sidebar -z-10" />
       
       <Card className="w-full max-w-md shadow-xl border-t-4 border-t-primary">
