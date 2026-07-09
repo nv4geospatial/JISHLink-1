@@ -490,6 +490,9 @@ router.post(
             status: (authError as any).status,
             code: (authError as any).code,
             name: (authError as any).name,
+            cause: (authError as any).cause ? String((authError as any).cause) : undefined,
+            originalError: (authError as any).originalError ? String((authError as any).originalError) : undefined,
+            fullError: JSON.stringify(authError, Object.getOwnPropertyNames(authError)),
           },
           'signUp failed'
         );
@@ -830,12 +833,20 @@ router.post(
       const cleanPhone = phone.replace(/\D/g, '');
       const withPlus = cleanPhone.startsWith('91') ? `+${cleanPhone}` : `+91${cleanPhone}`;
       
-      // Try exact match first, then ilike fallback
-      let { data: userRecord, error: userError } = await supabase
+      // Try exact match first, then ilike fallback. Use limit(1) + order instead
+      // of maybeSingle() so a duplicate phone across accounts doesn't hard-fail
+      // the whole lookup — take the most recently created matching account.
+      let { data: userRows, error: userError } = await supabase
         .from('users')
         .select('id, name, email, phone, account_status, role_id')
         .eq('phone', phone)
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
+      let userRecord = userRows?.[0] ?? null;
+
+      if (userRows && userRows.length > 1) {
+        logger.warn({ phone, count: userRows.length }, "send-phone-otp: multiple accounts share this phone number — using most recent");
+      }
 
       if (!userRecord && !userError) {
         // Try digits-only
