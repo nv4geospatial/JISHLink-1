@@ -224,7 +224,10 @@ function ClientDialog({ open, onOpenChange, client, onSuccess }: any) {
         if (error) throw error;
         toast({ title: 'Client updated successfully' });
       } else {
-        const { error } = await supabase.from('clients').insert([formData]);
+        const { data: { user } } = await supabase.auth.getUser();
+        const { error } = await supabase
+          .from('clients')
+          .insert([{ ...formData, created_by: user?.id ?? null }]);
         if (error) throw error;
         toast({ title: 'Client created successfully' });
       }
