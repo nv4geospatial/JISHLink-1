@@ -536,7 +536,10 @@ router.post(
       });
 
       if (userError) {
-        logger.error('Error inserting user record: ' + userError.message);
+        logger.error(
+          { message: userError.message, code: (userError as any).code, details: (userError as any).details, phoneValue },
+          'Error inserting user record — phone/profile data may not have been saved'
+        );
       }
       if (userError && !userError.message?.includes('duplicate')) {
         logger.error('Error inserting user record: ' + userError.message);
