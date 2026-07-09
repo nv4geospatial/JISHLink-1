@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Search, Plus, Loader2, Edit, Trash2, QrCode, MapPin, Crosshair, Map as MapIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/components/auth-provider";
 
 // Leaflet imports (lazy-loaded in map component)
 type NominatimResult = {
@@ -45,6 +46,8 @@ export default function SitesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   
+  const { role, user } = useAuth();
+  const [recruiters, setRecruiters] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSite, setEditingSite] = useState<any>(null);
   
@@ -54,9 +57,10 @@ export default function SitesPage() {
   const fetchSitesAndClients = async () => {
     try {
       setLoading(true);
-      const [sitesRes, clientsRes] = await Promise.all([
+      const [sitesRes, clientsRes, recruitersRes] = await Promise.all([
         supabase.from("sites").select("*, client:clients(name)").order("name"),
-        supabase.from("clients").select("id, name").order("name")
+        supabase.from("clients").select("id, name").order("name"),
+        supabase.from("users").select("id, name, email, roles!inner(name)").eq("roles.name", "recruiter")
       ]);
       
       if (sitesRes.error) throw sitesRes.error;
@@ -64,6 +68,7 @@ export default function SitesPage() {
       
       setSites(sitesRes.data || []);
       setClients(clientsRes.data || []);
+      setRecruiters(recruitersRes.data || []);
     } catch (error: any) {
       toast({ title: "Error fetching data", description: error.message, variant: "destructive" });
     } finally {
@@ -194,6 +199,9 @@ export default function SitesPage() {
         onOpenChange={setIsDialogOpen} 
         site={editingSite}
         clients={clients}
+        recruiters={recruiters}
+        role={role}
+        currentUserId={user?.id}
         onSuccess={fetchSitesAndClients}
       />
 
@@ -207,7 +215,7 @@ export default function SitesPage() {
   );
 }
 
-function SiteDialog({ open, onOpenChange, site, clients, onSuccess }: any) {
+function SiteDialog({ open, onOpenChange, site, clients, recruiters, onSuccess, role, currentUserId }: any) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
@@ -216,6 +224,7 @@ function SiteDialog({ open, onOpenChange, site, clients, onSuccess }: any) {
   const [formData, setFormData] = useState({
     name: '',
     client_id: 'none',
+    assigned_recruiter_id: 'none',
     address: '',
     latitude: '',
     longitude: '',
@@ -239,6 +248,7 @@ function SiteDialog({ open, onOpenChange, site, clients, onSuccess }: any) {
         setFormData({
           name: site.name || '',
           client_id: site.client_id || 'none',
+          assigned_recruiter_id: site.assigned_recruiter_id || 'none',
           address: site.address || '',
           latitude: site.latitude || '',
           longitude: site.longitude || '',
@@ -250,6 +260,7 @@ function SiteDialog({ open, onOpenChange, site, clients, onSuccess }: any) {
         setFormData({
           name: '',
           client_id: 'none',
+          assigned_recruiter_id: role === 'recruiter' ? currentUserId : 'none',
           address: '',
           latitude: '',
           longitude: '',
@@ -425,6 +436,9 @@ function SiteDialog({ open, onOpenChange, site, clients, onSuccess }: any) {
     const payload = {
       ...formData,
       client_id: formData.client_id === 'none' ? null : formData.client_id,
+      assigned_recruiter_id: role === 'recruiter'
+        ? currentUserId
+        : (formData.assigned_recruiter_id === 'none' ? null : formData.assigned_recruiter_id),
       latitude: parseFloat(formData.latitude as string) || 0,
       longitude: parseFloat(formData.longitude as string) || 0,
       geofence_radius_meters: parseInt(formData.geofence_radius_meters as any) || 100,
@@ -477,6 +491,28 @@ function SiteDialog({ open, onOpenChange, site, clients, onSuccess }: any) {
                     {clients.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2 col-span-2">
+                <label className="text-sm font-medium">Assigned Recruiter</label>
+                {role === 'admin' ? (
+                  <>
+                    <Select value={formData.assigned_recruiter_id} onValueChange={(val) => setFormData({...formData, assigned_recruiter_id: val})}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Unassigned</SelectItem>
+                        {recruiters.map((r: any) => <SelectItem key={r.id} value={r.id}>{r.name || r.email}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">The recruiter who manages employees at this site.</p>
+                  </>
+                ) : (
+                  <div className="text-sm px-3 py-2 rounded-md border bg-muted/50 text-muted-foreground">
+                    This site will be assigned to you automatically.
+                  </div>
+                )}
               </div>
               
               {/* Address Search with Nominatim */}
