@@ -869,16 +869,33 @@ router.post(
         Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000,
       ).toISOString();
 
-      await supabase.from("otp_logs").insert({
+      const { error: otpInsertError } = await supabase.from("otp_logs").insert({
         employee_id: userRecord.id,
         otp_hash,
         purpose: "admin_login",
         expires_at,
       });
 
-      // Send OTP via Twilio
+      if (otpInsertError) {
+        // This is the real reason "OTP not found or has expired" happens even
+        // with the correct code — the row never made it into otp_logs.
+        // Most likely cause: a CHECK constraint on otp_logs.purpose that doesn't
+        // yet allow 'admin_login'. See the SQL fix provided alongside this patch.
+        logger.error(
+          { err: otpInsertError.message, user_id: userRecord.id, purpose: "admin_login" },
+          "send-phone-otp: FAILED to store OTP — verification will never succeed until this is fixed"
+        );
+        res.status(500).json({
+          error: "Could not generate OTP. Please contact admin.",
+          details: otpInsertError.message,
+        });
+        return;
+      }
+
+      // Send OTP via Twilio — use the phone number as stored in the DB for
+      // consistent delivery/formatting rather than the raw user-typed value
       const smsBody = `Your JISHLink admin login OTP is: ${otp}. Valid for ${OTP_EXPIRY_MINUTES} minutes. Do not share this code.`;
-      const smsSent = await sendSms(phone, smsBody);
+      const smsSent = await sendSms(userRecord.phone || phone, smsBody);
 
       const response: Record<string, unknown> = {
         success: true,

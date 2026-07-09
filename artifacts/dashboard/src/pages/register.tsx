@@ -95,11 +95,19 @@ export default function RegisterPage() {
         throw new Error(errorMsg);
       }
 
-      toast({
-        title: "Registration successful",
-        description: "Please check your email and click the confirmation link before logging in.",
-      });
-      setLocation('/confirm?type=email&email=' + encodeURIComponent(email.toLowerCase()));
+      if (result.auto_confirmed) {
+        toast({
+          title: "Registration successful",
+          description: "Your account is ready — you can log in now.",
+        });
+        setLocation('/login?registered=true');
+      } else {
+        toast({
+          title: "Registration successful",
+          description: "Please check your email and click the confirmation link before logging in.",
+        });
+        setLocation('/confirm?type=email&email=' + encodeURIComponent(email.toLowerCase()));
+      }
     } catch (err: any) {
       const errorMessage = err.message || err.error || String(err) || 'Unknown error';
       toast({ title: "Registration failed", description: errorMessage, variant: "destructive" });
