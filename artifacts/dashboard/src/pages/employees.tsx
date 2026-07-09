@@ -447,6 +447,18 @@ function EmployeeDialog({ open, onOpenChange, employee, clients, sites, shifts, 
   const isEdit = !!employee;
   
   const [activeTab, setActiveTab] = useState("basic");
+  const [codeManuallyEdited, setCodeManuallyEdited] = useState(false);
+
+  const handleRecruiterChange = async (recruiterId: string) => {
+    if (isEdit || codeManuallyEdited || recruiterId === 'none') return;
+    const { data, error } = await supabase
+      .from('employee_id_settings')
+      .select('prefix, next_sequence')
+      .eq('user_id', recruiterId)
+      .maybeSingle();
+
+    updateField("employee_code", !error && data ? `${data.prefix}${data.next_sequence}` : 'EMP1000');
+  };
 
   const [formData, setFormData] = useState<Record<string, any>>({
     employee_code: '',
@@ -527,6 +539,7 @@ function EmployeeDialog({ open, onOpenChange, employee, clients, sites, shifts, 
           bank_branch: employee.bank_branch || '',
         });
       } else {
+        setCodeManuallyEdited(false);
         setFormData({
           employee_code: '',
           name: '',
@@ -597,6 +610,14 @@ function EmployeeDialog({ open, onOpenChange, employee, clients, sites, shifts, 
       } else {
         const { error } = await supabase.from('employees').insert([payload]);
         if (error) throw error;
+
+        if (payload.recruiter_id) {
+          const { error: seqError } = await supabase.rpc('increment_employee_sequence', {
+            p_user_id: payload.recruiter_id,
+          });
+          if (seqError) console.error('Could not advance employee ID sequence:', seqError.message);
+        }
+
         toast({ title: 'Employee created successfully' });
       }
       onSuccess();
@@ -632,8 +653,29 @@ function EmployeeDialog({ open, onOpenChange, employee, clients, sites, shifts, 
             <TabsContent value="basic" className="space-y-4 mt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className={fieldClass}>
+                  <label className={labelClass}>Recruiter</label>
+                  <Select
+                    value={formData.recruiter_id}
+                    onValueChange={(val) => { updateField("recruiter_id", val); handleRecruiterChange(val); }}
+                    disabled={isEdit}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {recruiters.map((r: any) => <SelectItem key={r.id} value={r.id}>{r.name || r.email}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {!isEdit && <p className="text-xs text-muted-foreground">Selecting a recruiter suggests their next Employee Code.</p>}
+                </div>
+                <div className={fieldClass}>
                   <label className={labelClass}>Employee Code *</label>
-                  <Input className={inputClass} value={formData.employee_code} onChange={(e) => updateField("employee_code", e.target.value)} required disabled={isEdit} />
+                  <Input
+                    className={inputClass}
+                    value={formData.employee_code}
+                    onChange={(e) => { updateField("employee_code", e.target.value); setCodeManuallyEdited(true); }}
+                    required
+                    disabled={isEdit}
+                  />
                 </div>
                 <div className={fieldClass}>
                   <label className={labelClass}>Full Name *</label>
@@ -754,16 +796,7 @@ function EmployeeDialog({ open, onOpenChange, employee, clients, sites, shifts, 
                     </SelectContent>
                   </Select>
                 </div>
-                <div className={fieldClass}>
-                  <label className={labelClass}>Recruiter</label>
-                  <Select value={formData.recruiter_id} onValueChange={(val) => updateField("recruiter_id", val)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {recruiters.map((r: any) => <SelectItem key={r.id} value={r.id}>{r.name || r.email}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
+                
                 <div className={fieldClass}>
                   <label className={labelClass}>Designation/Role</label>
                   <Input className={inputClass} value={formData.designation} onChange={(e) => updateField("designation", e.target.value)} placeholder="e.g. Security Guard" />

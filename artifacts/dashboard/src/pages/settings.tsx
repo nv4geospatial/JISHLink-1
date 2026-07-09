@@ -93,7 +93,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="employee-id" className="m-0">
-          <EmployeeIdSettings />
+          <EmployeeIdSettings userRole={userRole} />
         </TabsContent>
 
         {userRole === 'admin' && (
@@ -696,28 +696,39 @@ function UserDialog({ open, onOpenChange, user, roles, onSuccess }: any) {
   );
 }
 
-function EmployeeIdSettings() {
+function EmployeeIdSettings({ userRole }: { userRole: string | null }) {
+  if (userRole === 'admin') {
+    return <AdminEmployeeIdSettings />;
+  }
+  return <RecruiterEmployeeIdSettings />;
+}
+
+function RecruiterEmployeeIdSettings() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  
-  const [prefix, setPrefix] = useState('JL');
+  const [userId, setUserId] = useState<string | null>(null);
+
+  const [prefix, setPrefix] = useState('EMP');
   const [sequence, setSequence] = useState('1000');
 
   useEffect(() => {
     async function loadSettings() {
-      const { data, error } = await supabase.from('app_settings').select('key, value');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setInitialLoading(false); return; }
+      setUserId(user.id);
+
+      const { data, error } = await supabase
+        .from('employee_id_settings')
+        .select('prefix, next_sequence')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
       if (error) {
-        console.error('Error loading settings:', error);
-        setInitialLoading(false);
-        return;
-      }
-      
-      if (data && data.length > 0) {
-        const prefixRow = data.find((r: any) => r.key === 'employee_code_prefix');
-        const seqRow = data.find((r: any) => r.key === 'employee_code_sequence');
-        if (prefixRow) setPrefix(prefixRow.value);
-        if (seqRow) setSequence(seqRow.value);
+        console.error('Error loading employee ID settings:', error);
+      } else if (data) {
+        setPrefix(data.prefix);
+        setSequence(String(data.next_sequence));
       }
       setInitialLoading(false);
     }
@@ -725,21 +736,17 @@ function EmployeeIdSettings() {
   }, []);
 
   const handleSave = async () => {
+    if (!userId) return;
     setLoading(true);
     try {
-      // Upsert both settings using key-based updates
-      const { error: prefixError } = await supabase
-        .from('app_settings')
-        .upsert({ key: 'employee_code_prefix', value: prefix.toUpperCase() }, { onConflict: 'key' });
-      
-      if (prefixError) throw prefixError;
+      const { error } = await supabase
+        .from('employee_id_settings')
+        .upsert(
+          { user_id: userId, prefix: prefix.toUpperCase(), next_sequence: parseInt(sequence) || 1000 },
+          { onConflict: 'user_id' }
+        );
 
-      const { error: seqError } = await supabase
-        .from('app_settings')
-        .upsert({ key: 'employee_code_sequence', value: sequence }, { onConflict: 'key' });
-      
-      if (seqError) throw seqError;
-
+      if (error) throw error;
       toast({ title: "Settings saved successfully" });
     } catch (err: any) {
       toast({ title: "Error saving settings", description: err.message, variant: "destructive" });
@@ -756,15 +763,15 @@ function EmployeeIdSettings() {
     <Card className="max-w-xl">
       <CardHeader>
         <CardTitle>Employee ID Format</CardTitle>
-        <CardDescription>Configure how auto-generated employee IDs are formatted.</CardDescription>
+        <CardDescription>Configure how auto-generated employee IDs are formatted for employees you recruit.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Prefix</label>
-              <Input 
-                value={prefix} 
+              <Input
+                value={prefix}
                 onChange={e => setPrefix(e.target.value.toUpperCase())}
                 placeholder="e.g. JL"
               />
@@ -772,15 +779,15 @@ function EmployeeIdSettings() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Next Sequence Number</label>
-              <Input 
+              <Input
                 type="number"
-                value={sequence} 
+                value={sequence}
                 onChange={e => setSequence(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">The number for the next employee created.</p>
+              <p className="text-xs text-muted-foreground">Suggested number for your next employee.</p>
             </div>
           </div>
-          
+
           <div className="p-4 bg-muted/50 rounded-lg flex items-center justify-between border">
             <span className="text-sm font-medium">Preview:</span>
             <span className="text-lg font-bold font-mono text-sidebar tracking-wider">
@@ -788,11 +795,117 @@ function EmployeeIdSettings() {
             </span>
           </div>
         </div>
-        
+
         <Button onClick={handleSave} disabled={loading} className="w-full sm:w-auto">
           {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
           Save Format Settings
         </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AdminEmployeeIdSettings() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [rows, setRows] = useState<any[]>([]);
+
+  const fetchRecruiters = async () => {
+    setLoading(true);
+    const { data: recruiterUsers } = await supabase
+      .from('users')
+      .select('id, name, email, roles!inner(name)')
+      .eq('roles.name', 'recruiter');
+
+    const { data: settingsRows } = await supabase
+      .from('employee_id_settings')
+      .select('user_id, prefix, next_sequence');
+
+    const settingsByUser = new Map((settingsRows || []).map((s: any) => [s.user_id, s]));
+
+    const merged = (recruiterUsers || []).map((r: any) => {
+      const s = settingsByUser.get(r.id);
+      return {
+        user_id: r.id,
+        name: r.name || r.email,
+        prefix: s?.prefix || 'EMP',
+        next_sequence: s?.next_sequence ?? 1000,
+      };
+    });
+
+    setRows(merged);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchRecruiters(); }, []);
+
+  const updateRow = (userId: string, field: 'prefix' | 'next_sequence', value: string) => {
+    setRows(prev => prev.map(r => r.user_id === userId ? { ...r, [field]: value } : r));
+  };
+
+  const saveRow = async (row: any) => {
+    setSavingId(row.user_id);
+    try {
+      const { error } = await supabase
+        .from('employee_id_settings')
+        .upsert(
+          { user_id: row.user_id, prefix: String(row.prefix).toUpperCase(), next_sequence: parseInt(row.next_sequence) || 1000 },
+          { onConflict: 'user_id' }
+        );
+
+      if (error) throw error;
+      toast({ title: `Saved for ${row.name}` });
+    } catch (err: any) {
+      toast({ title: "Error saving settings", description: err.message, variant: "destructive" });
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Employee ID Format — Per Recruiter</CardTitle>
+        <CardDescription>Each recruiter has their own prefix and sequence. Edit any recruiter's counter here.</CardDescription>
+      </CardHeader>
+      <CardContent className="p-0">
+        <Table>
+          <Header>
+            <Row>
+              <HeaderCell>Recruiter</HeaderCell>
+              <HeaderCell>Prefix</HeaderCell>
+              <HeaderCell>Next Sequence</HeaderCell>
+              <HeaderCell>Preview</HeaderCell>
+              <HeaderCell className="text-right">Actions</HeaderCell>
+            </Row>
+          </Header>
+          <Body>
+            {loading ? (
+              <Row><Cell colSpan={5} className="h-32 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" /></Cell></Row>
+            ) : rows.length === 0 ? (
+              <Row><Cell colSpan={5} className="h-32 text-center text-muted-foreground">No recruiters found.</Cell></Row>
+            ) : (
+              rows.map(row => (
+                <Row key={row.user_id}>
+                  <Cell className="font-medium">{row.name}</Cell>
+                  <Cell>
+                    <Input className="w-24" value={row.prefix} onChange={e => updateRow(row.user_id, 'prefix', e.target.value.toUpperCase())} />
+                  </Cell>
+                  <Cell>
+                    <Input className="w-28" type="number" value={row.next_sequence} onChange={e => updateRow(row.user_id, 'next_sequence', e.target.value)} />
+                  </Cell>
+                  <Cell className="font-mono">{row.prefix}{row.next_sequence}</Cell>
+                  <Cell className="text-right">
+                    <Button size="sm" disabled={savingId === row.user_id} onClick={() => saveRow(row)}>
+                      {savingId === row.user_id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    </Button>
+                  </Cell>
+                </Row>
+              ))
+            )}
+          </Body>
+        </Table>
       </CardContent>
     </Card>
   );
