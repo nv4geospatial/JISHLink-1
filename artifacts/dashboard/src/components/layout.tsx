@@ -44,23 +44,22 @@ const navItems = [
   { href: '/sites', label: 'Sites', icon: MapPin },
   { href: '/attendance', label: 'Attendance', icon: Clock },
   { href: '/reports', label: 'Reports', icon: FileText },
-  { href: '/settings', label: 'Settings', icon: Settings, adminOnly: true },
+  { href: '/settings', label: 'Settings', icon: Settings, allowedRoles: ['admin', 'recruiter'] },
 ];
 
 export function Sidebar({ mobile = false, setOpen }: { mobile?: boolean, setOpen?: (open: boolean) => void }) {
   const [location] = useLocation();
   const { signOut, role } = useAuth();
-  const isAdmin = role === 'admin';
 
   const content = (
-    <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground w-[240px]">
+    <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground w-60">
       <div className="p-4 flex items-center justify-center border-b border-sidebar-border h-16 shrink-0 bg-white">
         <img src={logoPath} alt="JISHLink Logo" className="h-10 object-contain" />
       </div>
       
       <nav className="flex-1 space-y-1 p-3 overflow-y-auto">
         <div className="text-xs font-semibold text-sidebar-primary mb-2 px-3 uppercase tracking-wider">Management</div>
-        {navItems.filter(item => !item.adminOnly || isAdmin).map((item) => {
+        {navItems.filter(item => !item.allowedRoles || (role && item.allowedRoles.includes(role))).map((item) => {
           const isActive = location.startsWith(item.href);
           const Icon = item.icon;
           
@@ -98,7 +97,7 @@ export function Sidebar({ mobile = false, setOpen }: { mobile?: boolean, setOpen
   }
 
   return (
-    <aside className="hidden lg:flex flex-col w-[240px] fixed inset-y-0 left-0 z-50">
+    <aside className="hidden lg:flex flex-col w-60 fixed inset-y-0 left-0 z-50">
       {content}
     </aside>
   );
@@ -199,7 +198,7 @@ export function Topbar() {
 
       {/* Change Password Dialog */}
       <Dialog open={showChangePassword} onOpenChange={setShowChangePassword}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent className="sm:max-w-100">
           <DialogHeader>
             <DialogTitle>Change Password</DialogTitle>
           </DialogHeader>
@@ -242,9 +241,9 @@ export function Topbar() {
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-[100dvh] bg-background">
+    <div className="min-h-dvh bg-background">
       <Sidebar />
-      <div className="lg:pl-[240px] flex flex-col min-h-[100dvh]">
+      <div className="lg:pl-60 flex flex-col min-h-dvh">
         <Topbar />
         <main className="flex-1 p-4 lg:p-8 overflow-x-hidden">
           {children}
