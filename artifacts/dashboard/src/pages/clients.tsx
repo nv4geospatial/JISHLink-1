@@ -145,10 +145,10 @@ export default function ClientsPage() {
                     </Cell>
                     <Cell>
                       <Badge variant={client.status === 'active' ? 'default' : 'secondary'} className={
-                        client.status === 'active' ? 'bg-success hover:bg-success/90' : ''
+                        client.status === 'active' ? 'bg-success text-success-foreground hover:bg-success/90' : ''
                       }>
                         {client.status}
-                      </Badge>
+                    </Badge>
                     </Cell>
                     <Cell className="text-right space-x-2">
                       <Button variant="ghost" size="icon" onClick={() => { setEditingClient(client); setIsDialogOpen(true); }}>

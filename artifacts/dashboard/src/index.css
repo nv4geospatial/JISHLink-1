@@ -39,6 +39,9 @@
   --color-destructive-foreground: hsl(var(--destructive-foreground));
   --color-destructive-border: var(--destructive-border);
 
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+
   --color-chart-1: hsl(var(--chart-1));
   --color-chart-2: hsl(var(--chart-2));
   --color-chart-3: hsl(var(--chart-3));
@@ -107,6 +110,7 @@
   --destructive-foreground: 0 0% 100%;
 
   --success: 153 55% 40%; /* #2E9E6B */
+  --success-foreground: 0 0% 100%;
   
   --chart-1: 196 76% 37%;
   --chart-2: 153 55% 40%;
