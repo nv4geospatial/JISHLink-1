@@ -320,12 +320,21 @@ const API_BASE = rawApiUrl.replace(/\/$/, '') + '/api';
         throw new Error(result.error || 'Verification failed');
       }
 
-      // Set the session in Supabase client so auth state works globally
-      if (result.token) {
-        // For custom token, store it and set auth state manually
-        localStorage.setItem('admin_token', result.token);
-        // Trigger auth state update by setting Supabase session if possible
-        // Or use a custom auth context that checks for admin_token
+      if (!result.token_hash || !result.email) {
+        throw new Error('Login succeeded but session data was incomplete. Please try email login.');
+      }
+
+      // Exchange the one-time token_hash for a REAL Supabase session.
+      // This is what makes auth-provider.tsx's onAuthStateChange fire and
+      // ProtectedRoute recognize the user — same as email/password login.
+      const { error: sessionError } = await supabase.auth.verifyOtp({
+        email: result.email,
+        token: result.token_hash,
+        type: 'magiclink',
+      });
+
+      if (sessionError) {
+        throw new Error(sessionError.message || 'Failed to establish session');
       }
 
       toast({ title: "Login successful", description: "Welcome to JISHLink Dashboard" });

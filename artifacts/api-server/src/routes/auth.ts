@@ -1033,16 +1033,29 @@ router.post(
         .update({ used_at: new Date().toISOString() })
         .eq("id", otpLog.id);
 
-      // Issue our own JWT for the admin (no need to touch Supabase Auth here)
-      const token = signEmployeeToken({
-        employee_id: userRecord.id,
-        employee_code: userRecord.email,
-        site_id: '',
+      if (!userRecord.email) {
+        res.status(500).json({ error: "This account has no email on file — cannot complete login." });
+        return;
+      }
+
+      // Mint a real Supabase Auth session (not a custom JWT) so the dashboard's
+      // existing auth-provider (which only trusts supabase.auth sessions) picks
+      // this login up automatically — no changes needed to the frontend guard.
+      const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+        type: 'magiclink',
+        email: userRecord.email,
       });
+
+      if (linkError || !linkData?.properties?.hashed_token) {
+        logger.error({ err: linkError?.message, user_id: userRecord.id }, "verify-phone-otp: failed to generate session link");
+        res.status(500).json({ error: "Login succeeded but session creation failed. Please try email login." });
+        return;
+      }
 
       res.json({
         success: true,
-        token,
+        email: userRecord.email,
+        token_hash: linkData.properties.hashed_token,
         user: {
           id: userRecord.id,
           email: userRecord.email,
