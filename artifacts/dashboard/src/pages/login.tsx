@@ -328,8 +328,7 @@ const API_BASE = rawApiUrl.replace(/\/$/, '') + '/api';
       // This is what makes auth-provider.tsx's onAuthStateChange fire and
       // ProtectedRoute recognize the user — same as email/password login.
       const { error: sessionError } = await supabase.auth.verifyOtp({
-        email: result.email,
-        token: result.token_hash,
+        token_hash: result.token_hash,
         type: 'magiclink',
       });
 
