@@ -49,9 +49,8 @@ const navItems = [
 
 export function Sidebar({ mobile = false, setOpen }: { mobile?: boolean, setOpen?: (open: boolean) => void }) {
   const [location] = useLocation();
-  const { signOut } = useAuth();
-  // Assume admin for now, ideally check role from user metadata
-  const isAdmin = true;
+  const { signOut, role } = useAuth();
+  const isAdmin = role === 'admin';
 
   const content = (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground w-[240px]">
@@ -107,7 +106,7 @@ export function Sidebar({ mobile = false, setOpen }: { mobile?: boolean, setOpen
 
 export function Topbar() {
   const [location] = useLocation();
-  const { user, signOut } = useAuth();
+  const { user, role, signOut } = useAuth();
   const { toast } = useToast();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -168,8 +167,8 @@ export function Topbar() {
         
         <div className="flex items-center gap-4">
           <div className="hidden sm:flex flex-col items-end">
-            <span className="text-sm font-medium">{user?.email || 'Admin User'}</span>
-            <span className="text-xs text-muted-foreground">Administrator</span>
+            <span className="text-sm font-medium">{user?.email || 'User'}</span>
+            <span className="text-xs text-muted-foreground capitalize">{role || 'No role assigned'}</span>
           </div>
           
           <DropdownMenu>
