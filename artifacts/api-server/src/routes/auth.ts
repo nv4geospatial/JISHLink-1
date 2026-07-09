@@ -481,19 +481,40 @@ router.post(
 
       if (authError) {
         const errMsg = authError.message || String(authError) || 'Unknown registration error';
-        logger.error({ email: email.toLowerCase(), error: errMsg, raw: authError }, 'signUp failed');
-        
-        if (errMsg.toLowerCase().includes('already registered') || 
+        // Log every field we can get — status/code tell us the GoTrue reason
+        // (e.g. weak_password, email_exists, over_email_send_rate_limit, etc.)
+        logger.error(
+          {
+            email: email.toLowerCase(),
+            message: errMsg,
+            status: (authError as any).status,
+            code: (authError as any).code,
+            name: (authError as any).name,
+          },
+          'signUp failed'
+        );
+
+        if (errMsg.toLowerCase().includes('already registered') ||
             errMsg.toLowerCase().includes('already exists') ||
             errMsg.toLowerCase().includes('user already') ||
             errMsg.toLowerCase().includes('duplicate')) {
-          res.status(409).json({ 
-            error: "Email already registered", 
-            message: "This email is already in use. Please log in or use forgot password." 
+          res.status(409).json({
+            error: "Email already registered",
+            message: "This email is already in use. Please log in or use forgot password."
           });
           return;
         }
-        res.status(400).json({ error: errMsg });
+
+        if (errMsg.toLowerCase().includes('password') &&
+            (errMsg.toLowerCase().includes('weak') || errMsg.toLowerCase().includes('breach') || errMsg.toLowerCase().includes('pwned') || errMsg.toLowerCase().includes('leaked'))) {
+          res.status(400).json({
+            error: "Password too weak",
+            message: "This password has appeared in known data breaches. Please choose a different, unique password."
+          });
+          return;
+        }
+
+        res.status(400).json({ error: errMsg || 'Registration failed. Please try a different password or email.' });
         return;
       }
 

@@ -8,7 +8,6 @@ import {
   Table,
   Body,
   Cell,
-  Head,
   Header,
   HeaderCell,
   Row,
@@ -240,7 +239,7 @@ function ClientDialog({ open, onOpenChange, client, onSuccess }: any) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[450px]">
+      <DialogContent className="sm:max-w-112.5">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit Client' : 'Add New Client'}</DialogTitle>
         </DialogHeader>

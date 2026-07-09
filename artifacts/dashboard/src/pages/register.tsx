@@ -59,10 +59,19 @@ export default function RegisterPage() {
         }),
       });
 
-      const result = await response.json();
+      let result: any = {};
+      try {
+        result = await response.json();
+      } catch {
+        result = {};
+      }
 
       if (!response.ok) {
-        const errorMsg = result.error || result.message || 'Registration failed';
+        const rawError = result?.error ?? result?.message;
+        const errorMsg =
+          typeof rawError === 'string' && rawError.trim()
+            ? rawError
+            : `Registration failed (status ${response.status}). Please try a different password or contact admin.`;
         
         // Handle specific errors
         if (response.status === 409 || 
@@ -109,7 +118,10 @@ export default function RegisterPage() {
         setLocation('/confirm?type=email&email=' + encodeURIComponent(email.toLowerCase()));
       }
     } catch (err: any) {
-      const errorMessage = err.message || err.error || String(err) || 'Unknown error';
+      const errorMessage =
+        (typeof err?.message === 'string' && err.message.trim()) ||
+        (typeof err?.error === 'string' && err.error.trim()) ||
+        'Something went wrong. Please try again.';
       toast({ title: "Registration failed", description: errorMessage, variant: "destructive" });
     } finally {
       setLoading(false);

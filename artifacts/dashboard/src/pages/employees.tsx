@@ -614,7 +614,7 @@ function EmployeeDialog({ open, onOpenChange, employee, clients, sites, shifts, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-175 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit Employee' : 'Add New Employee'}</DialogTitle>
         </DialogHeader>

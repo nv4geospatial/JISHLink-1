@@ -21,11 +21,15 @@ import { Badge } from "@/components/ui/badge";
 export default function DashboardPage() {
   const { data: stats, isLoading: statsLoading } = useGetDashboardStats();
   const { data: trend, isLoading: trendLoading } = useGetAttendanceTrend({});
-  const { data: checkins, isLoading: checkinsLoading } = useGetRecentCheckins({ limit: 10 }, {
+ const { data: checkins, isLoading: checkinsLoading } = useGetRecentCheckins(
+  { limit: 10 },
+  {
     query: {
-      refetchInterval: 15000 // Poll every 15 seconds
-    }
-  });
+      queryKey: ["recent-checkins", { limit: 10 }], // <-- add this
+      refetchInterval: 15000,
+    },
+  }
+);
 
   const statCards = [
     { title: "Total Employees", value: stats?.total_employees || 0, icon: Users, color: "text-sidebar", bg: "bg-sidebar/10" },
@@ -71,7 +75,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle>Attendance Trend (14 Days)</CardTitle>
           </CardHeader>
-          <CardContent className="pl-0 h-[350px]">
+          <CardContent className="pl-0 h-87.5">
             {trendLoading ? (
               <div className="h-full w-full flex items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -122,7 +126,7 @@ export default function DashboardPage() {
               Live Check-ins
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 overflow-auto max-h-[350px] pr-2">
+          <CardContent className="flex-1 overflow-auto max-h-87.5 pr-2">
             {checkinsLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

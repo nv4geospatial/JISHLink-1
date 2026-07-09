@@ -160,7 +160,7 @@ export default function SitesPage() {
                       <div className="text-xs text-muted-foreground ml-6">{site.client?.name}</div>
                     </Cell>
                     <Cell>
-                      <div className="text-sm max-w-[200px] truncate" title={site.address}>{site.address}</div>
+                      <div className="text-sm max-w-50 truncate" title={site.address}>{site.address}</div>
                       <div className="text-xs text-muted-foreground">{site.latitude}, {site.longitude}</div>
                     </Cell>
                     <Cell>
@@ -452,7 +452,7 @@ function SiteDialog({ open, onOpenChange, site, clients, onSuccess }: any) {
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[550px]">
+        <DialogContent className="sm:max-w-137.5">
           <DialogHeader>
             <DialogTitle>{isEdit ? 'Edit Site' : 'Add New Site'}</DialogTitle>
           </DialogHeader>
@@ -735,7 +735,7 @@ function MapPickerDialog({ open, onOpenChange, onSelect, initialLat, initialLng 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[95vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-175 max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Pick Location on Map</DialogTitle>
         </DialogHeader>
@@ -762,7 +762,7 @@ function MapPickerDialog({ open, onOpenChange, onSelect, initialLat, initialLng 
           <div className="relative">
             <div 
               ref={mapRef} 
-              className="w-full h-[450px] rounded-lg border border-border bg-muted"
+              className="w-full h-112.5 rounded-lg border border-border bg-muted"
             />
             {!leafletLoaded && (
               <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-lg">
@@ -815,7 +815,7 @@ function QrDialog({ open, onOpenChange, site, onSuccess }: any) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[400px]">
+      <DialogContent className="sm:max-w-100">
         <DialogHeader>
           <DialogTitle>QR Code for {site.name}</DialogTitle>
         </DialogHeader>
