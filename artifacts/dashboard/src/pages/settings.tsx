@@ -55,27 +55,27 @@ export default function SettingsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-muted/50 p-1 flex-wrap">
-          <TabsTrigger value="account" className="data-[state=active]:bg-sidebar data-[state=active]:text-sidebar-foreground">
-            <UserCheck className="w-4 h-4 mr-2" />
-            My Account
+        <TabsList className="bg-muted/50 p-1 flex-wrap gap-1 h-auto">
+          <TabsTrigger value="account" className="data-[state=active]:bg-sidebar data-[state=active]:text-sidebar-foreground px-2 sm:px-3">
+            <UserCheck className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">My Account</span>
           </TabsTrigger>
-          <TabsTrigger value="roles" className="data-[state=active]:bg-sidebar data-[state=active]:text-sidebar-foreground">
-            <Shield className="w-4 h-4 mr-2" />
-            Roles & Permissions
+          <TabsTrigger value="roles" className="data-[state=active]:bg-sidebar data-[state=active]:text-sidebar-foreground px-2 sm:px-3">
+            <Shield className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Roles & Permissions</span>
           </TabsTrigger>
-          <TabsTrigger value="shifts" className="data-[state=active]:bg-sidebar data-[state=active]:text-sidebar-foreground">
-            <Clock className="w-4 h-4 mr-2" />
-            Shift Master
+          <TabsTrigger value="shifts" className="data-[state=active]:bg-sidebar data-[state=active]:text-sidebar-foreground px-2 sm:px-3">
+            <Clock className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Shift Master</span>
           </TabsTrigger>
-          <TabsTrigger value="employee-id" className="data-[state=active]:bg-sidebar data-[state=active]:text-sidebar-foreground">
-            <Hash className="w-4 h-4 mr-2" />
-            Employee ID Settings
+          <TabsTrigger value="employee-id" className="data-[state=active]:bg-sidebar data-[state=active]:text-sidebar-foreground px-2 sm:px-3">
+            <Hash className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Employee ID</span>
           </TabsTrigger>
           {userRole === 'admin' && (
-            <TabsTrigger value="users" className="data-[state=active]:bg-sidebar data-[state=active]:text-sidebar-foreground">
-              <Users className="w-4 h-4 mr-2" />
-              User Management
+            <TabsTrigger value="users" className="data-[state=active]:bg-sidebar data-[state=active]:text-sidebar-foreground px-2 sm:px-3">
+              <Users className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Users</span>
             </TabsTrigger>
           )}
         </TabsList>
@@ -226,8 +226,8 @@ function RolesSettings() {
         <CardTitle>Roles & Permissions</CardTitle>
         <CardDescription>View available system roles and their descriptions.</CardDescription>
       </CardHeader>
-      <CardContent className="p-0">
-        <Table>
+      <CardContent className="p-0 overflow-x-auto">
+        <Table className="min-w-[500px]">
           <Header>
             <Row>
               <HeaderCell>Role Name</HeaderCell>
@@ -297,18 +297,18 @@ function ShiftMaster() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <CardTitle>Shift Master</CardTitle>
           <CardDescription>Manage work shifts and grace periods.</CardDescription>
         </div>
-        <Button onClick={() => { setEditingShift(null); setDialogOpen(true); }}>
+        <Button onClick={() => { setEditingShift(null); setDialogOpen(true); }} className="w-full sm:w-auto">
           <Plus className="w-4 h-4 mr-2" />
           Add Shift
         </Button>
       </CardHeader>
-      <CardContent className="p-0">
-        <Table>
+      <CardContent className="p-0 overflow-x-auto">
+        <Table className="min-w-[500px]">
           <Header>
             <Row>
               <HeaderCell>Shift Name</HeaderCell>
@@ -416,7 +416,7 @@ function ShiftDialog({ open, onOpenChange, shift, onSuccess }: any) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-100">
+      <DialogContent className="sm:max-w-lg w-[calc(100vw-2rem)]">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit Shift' : 'Add Shift'}</DialogTitle>
         </DialogHeader>
@@ -494,18 +494,18 @@ function UserManagement() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <CardTitle>User Management</CardTitle>
           <CardDescription>Manage admin and recruiter accounts.</CardDescription>
         </div>
-        <Button onClick={() => { setEditingUser(null); setDialogOpen(true); }}>
+        <Button onClick={() => { setEditingUser(null); setDialogOpen(true); }} className="w-full sm:w-auto">
           <Plus className="w-4 h-4 mr-2" />
           Add User
         </Button>
       </CardHeader>
-      <CardContent className="p-0">
-        <Table>
+      <CardContent className="p-0 overflow-x-auto">
+        <Table className="min-w-[500px]">
           <Header>
             <Row>
               <HeaderCell>Name</HeaderCell>
@@ -869,8 +869,8 @@ function AdminEmployeeIdSettings() {
         <CardTitle>Employee ID Format — Per Recruiter</CardTitle>
         <CardDescription>Each recruiter has their own prefix and sequence. Edit any recruiter's counter here.</CardDescription>
       </CardHeader>
-      <CardContent className="p-0">
-        <Table>
+      <CardContent className="p-0 overflow-x-auto">
+        <Table className="min-w-[500px]">
           <Header>
             <Row>
               <HeaderCell>Recruiter</HeaderCell>

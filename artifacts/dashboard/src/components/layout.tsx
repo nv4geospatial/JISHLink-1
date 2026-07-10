@@ -245,7 +245,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <Sidebar />
       <div className="lg:pl-60 flex flex-col min-h-dvh">
         <Topbar />
-        <main className="flex-1 p-4 lg:p-8 overflow-x-hidden">
+        <main className="flex-1 p-3 sm:p-4 lg:p-8 overflow-x-hidden min-w-0">
           {children}
         </main>
       </div>

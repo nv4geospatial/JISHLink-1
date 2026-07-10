@@ -230,10 +230,11 @@ const API_BASE = rawApiUrl.replace(/\/$/, '') + '/api';
     }
     setLoading(true);
     try {
+      const fullPhone = `+91${phone}`;
       const response = await fetch(`${API_BASE}/auth/admin/send-phone-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone: fullPhone }),
       });
 
       const result = await response.json();
@@ -251,7 +252,7 @@ const API_BASE = rawApiUrl.replace(/\/$/, '') + '/api';
       }
 
       setPhoneStep('otp');
-      toast({ title: "OTP sent", description: result.message || `Check your phone ${phone}` });
+      toast({ title: "OTP sent", description: result.message || `Check your phone +91${phone}` });
       setCooldown(60); // 1 minute cooldown
       const interval = setInterval(() => {
         setCooldown((prev) => {
@@ -311,7 +312,7 @@ const API_BASE = rawApiUrl.replace(/\/$/, '') + '/api';
       const response = await fetch(`${API_BASE}/auth/admin/verify-phone-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, otp: phoneOtp }),
+        body: JSON.stringify({ phone: `+91${phone}`, otp: phoneOtp }),
       });
 
       const result = await response.json();
@@ -421,13 +422,19 @@ const API_BASE = rawApiUrl.replace(/\/$/, '') + '/api';
                     </div>
                     <form onSubmit={handleAdminPhoneOtp} className="space-y-3">
                       <div className="flex gap-2">
-                        <Input 
-                          placeholder="+91-9876543210" 
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          className="h-11 flex-1"
-                        />
-                        <Button type="submit" variant="outline" className="h-11" disabled={loading}>
+                        <div className="flex h-11 flex-1 items-center rounded-md border border-input bg-background overflow-hidden focus-within:ring-1 focus-within:ring-ring">
+                          <span className="px-3 text-sm text-muted-foreground border-r h-full flex items-center bg-muted/40 select-none">+91</span>
+                          <input
+                            type="tel"
+                            inputMode="numeric"
+                            placeholder="9876543210"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                            maxLength={10}
+                            className="flex-1 h-full px-3 bg-transparent outline-none text-sm"
+                          />
+                        </div>
+                        <Button type="submit" variant="outline" className="h-11" disabled={loading || phone.length !== 10}>
                           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send OTP'}
                         </Button>
                       </div>
@@ -532,7 +539,7 @@ const API_BASE = rawApiUrl.replace(/\/$/, '') + '/api';
               {phoneStep === 'otp' && (
                 <form onSubmit={handleAdminPhoneVerify} className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Enter OTP sent to {phone}</Label>
+                    <Label>Enter OTP sent to +91{phone}</Label>
                     <Input 
                       value={phoneOtp}
                       onChange={(e) => setPhoneOtp(e.target.value)}
