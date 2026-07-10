@@ -55,7 +55,7 @@ export default function RegisterPage() {
           email: email.toLowerCase(),
           password,
           name,
-          phone: phone && phone.length === 10 ? `+91${phone}` : null,
+          phone: phone || null,
         }),
       });
 
@@ -171,18 +171,12 @@ export default function RegisterPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Phone Number</Label>
-                  <div className="flex h-11 items-center rounded-md border border-input bg-background overflow-hidden focus-within:ring-1 focus-within:ring-ring">
-                    <span className="px-3 text-sm text-muted-foreground border-r h-full flex items-center bg-muted/40 select-none">+91</span>
-                    <input
-                      type="tel"
-                      inputMode="numeric"
-                      placeholder="9876543210"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      maxLength={10}
-                      className="flex-1 h-full px-3 bg-transparent outline-none text-sm"
-                    />
-                  </div>
+                  <Input 
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="h-11"
+                    placeholder="+91-9876543210"
+                  />
                   <p className="text-xs text-muted-foreground">Optional. Used for OTP login after account approval.</p>
                 </div>
                 <div className="space-y-2">
